@@ -1,126 +1,105 @@
 # Process Flow
 
-## 1. **Calculate k-mers and their Frequency (k-counts)**
+In this assignment, the task is to develop a basic Illumina read error correction software that leverages _k-mer_ frequencies to identify and fix errors in sequencing reads. Here’s how you can break down the error correction process into a series of steps:
 
-- The DNA sequence is split into small overlapping pieces called _k-mers_ of length "k."
-- Each _k-mer_ has a count (or frequency), called the k-count, representing how often that _k-mer_ appears in the dataset.
-- If a _k-mer_ has a **high k-count**, it’s considered a "solid" (likely correct) _k-mer_. If it has a **low k-count**, it’s considered "weak" (likely to have errors).
-- Because sequencing data can be huge, a hashed map (a fast way of storing data) is used to store each _k-mer_ and its positions in the read.
+## 1. **Calculate k-mer Frequencies**
 
-To store _k-mer_ counts efficiently, a **hash map (hash table)** can be used. A hash map allows quick lookup, insertion, and counting of _k-mers_ by using the _k-mer_ sequence as the key. Here's how you can implement a hash map for _k-mer_ counts step-by-step:
-
-### 1. **Initialize the Hash Map**
-
-- Create an empty hash map (often implemented as a dictionary in Python, a `HashMap` in Java, or an `unordered_map` in C++).
-- In this hash map, the keys will be the _k-mers_ (strings of DNA bases of length `k`), and the values will be their counts (integers).
-
-### 2. **Iterate Over Each DNA Read**
-
-- For each DNA read in your dataset, extract all possible _k-mers_ of length `k`.
-- In a read of length `L`, you can generate `L - k + 1` _k-mers_. For example, for a sequence `ACGTG` and `k = 3`, the _k-mers_ are `ACG`, `CGT`, and `GTG`.
-
-### 3. **Hash Each k-mer and Update Its Count**
-
-- For each _k-mer_, check if it already exists in the hash map:
-  - If the _k-mer_ is **not in the hash map**, add it to the hash map with an initial count of 1.
-  - If the _k-mer_ **exists in the hash map**, increment its count by 1.
-- Here's a Python example for clarity:
+- **Input:** A set of DNA reads.
+- **Output:** A hash map or dictionary that stores the counts of each _k-mer_ across all the reads.
+- For each read, generate all possible _k-mers_ (substrings of length `k`). Use a hash map to count the occurrences of each _k-mer_.
 
 ```python
-def count_kmers(sequence, k):
-    kmer_counts = {}  # Initialize an empty hash map (dictionary)
-
-    # Iterate through the sequence to extract all k-mers
-    for i in range(len(sequence) - k + 1):
-        kmer = sequence[i:i+k]  # Get the k-mer of length k starting at index i
-
-        # Update the k-mer count in the hash map
-        if kmer in kmer_counts:
-            kmer_counts[kmer] += 1
-        else:
-            kmer_counts[kmer] = 1
-
+def calculate_kmer_frequencies(reads, k):
+    kmer_counts = {}
+    for read in reads:
+        for i in range(len(read) - k + 1):
+            kmer = read[i:i+k]
+            if kmer in kmer_counts:
+                kmer_counts[kmer] += 1
+            else:
+                kmer_counts[kmer] = 1
     return kmer_counts
 ```
 
-- This function takes a DNA sequence and a _k_-value, iterates through the sequence to generate _k-mers_, and updates their counts in the hash map.
+## 2. **Determine the Error Threshold**
 
-### 4. **Handle Large Data (Memory Management)**
+- Since the genome coverage is `X = 30`, the average _k-mer_ count for true sequences should be around 30.
+- The threshold can be set to a low count (e.g., 1 or 2) to identify _k-mers_ that likely contain errors. This means any _k-mer_ with a count below this threshold is considered an error.
 
-- For large datasets, you may need to use more memory-efficient methods:
-  - **Sliding Window**: Process the reads in chunks rather than loading the entire dataset into memory.
-  - **Disk-Based Storage**: Use disk-based key-value stores (like LevelDB) if the in-memory hash map becomes too large.
-  - **Hash Collisions**: Make sure to use a good hash function (most built-in hash functions are suitable) to minimize collisions and optimize access times.
+## 3. **Identify Potential Errors in the Reads**
 
-### 5. **Using Hashing for Fast Lookup**
+- For each read, slide through it and generate _k-mers_. If a _k-mer_ has a count below the error threshold, the base in that region is flagged as a potential error.
 
-- The hash function takes each _k-mer_ (string) and computes an index to store it in the hash map, allowing quick insertion and retrieval.
-- A well-designed hash function ensures that each _k-mer_ is distributed evenly across the hash map, making counting fast and efficient.
+## 4. **Correct Errors**
 
-### Kmer Frequency Summary
+- For each flagged error position, change the base to one of the three other possible nucleotides (A, T, G, C).
+- Generate new _k-mers_ using the modified base and check their counts in the _k-mer_ frequency hash map.
+- Select the base that results in _k-mers_ with the highest counts.
 
-- **Keys:** The _k-mers_ (substrings of length `k`).
-- **Values:** The counts of each _k-mer_.
-- Iterate over the DNA sequence to extract _k-mers_ and update the counts in the hash map.
-- This approach allows efficient counting and storage of _k-mers_, making it a practical solution for error correction in large sequencing datasets.
+```python
+def correct_errors(reads, k, kmer_counts, error_threshold=2):
+    corrected_reads = []
 
-## 2. **Establish the Error Threshold**
+    for read in reads:
+        read_list = list(read)  # Convert to list for easy modification
+        for i in range(len(read) - k + 1):
+            kmer = read[i:i+k]
+            if kmer_counts.get(kmer, 0) <= error_threshold:
+                # Possible error detected; find the base in the k-mer causing the issue
+                for j in range(k):  # Loop through each base in the k-mer
+                    original_base = read[i+j]
+                    max_count = 0
+                    best_base = original_base
 
-- This step separates solid _k-mers_ (correct) from weak _k-mers_ (incorrect).
-- The error threshold is a k-count value that distinguishes between solid and weak _k-mers_.
-- To find this threshold, the frequency of each k-count is examined. Typically, the first minimum in the frequency distribution of k-counts is used to set the threshold.
-- In simpler terms, this means finding the point where the count of _k-mers_ shifts from being common (solid) to rare (weak).
-- If there is a long section in the frequency distribution with consecutive zeros (no _k-mers_), this is used to set the error threshold.
+                    # Try replacing with each possible base
+                    for base in 'ATGC':
+                        if base != original_base:
+                            # Create a new k-mer with the modified base
+                            modified_kmer = list(kmer)
+                            modified_kmer[j] = base
+                            modified_kmer_str = ''.join(modified_kmer)
 
-To establish the error threshold, the method involves analyzing the frequency distribution of _k-mer_ counts to distinguish between solid (correct) and weak (error-prone) _k-mers_. Here’s how it is done step-by-step:
+                            # Check the count of the new k-mer
+                            count = kmer_counts.get(modified_kmer_str, 0)
+                            if count > max_count:
+                                max_count = count
+                                best_base = base
 
-### 1. **Calculate the Frequency Distribution of k-mer Counts**
+                    # Replace the original base with the best base if it's different
+                    if best_base != original_base:
+                        read_list[i+j] = best_base
 
-- After counting how many times each _k-mer_ appears in the sequencing data, you create a distribution (a table or graph) that shows how many _k-mers_ exist for each possible count.
-- For example, you might find many _k-mers_ that appear 20 times, fewer that appear 5 times, and very few that appear just once or twice.
+        corrected_reads.append(''.join(read_list))
 
-### 2. **Identify the Minimum Point in the Frequency Distribution**
+    return corrected_reads
+```
 
-- The frequency distribution usually has two distinct parts:
-  1.  **High-frequency region:** Representing _k-mers_ that appear often (solid, correct _k-mers_).
-  2.  **Low-frequency region:** Representing _k-mers_ that appear infrequently (likely to be errors).
-- These two regions are typically separated by a "valley" or a dip in the frequency distribution. This valley indicates a point where the frequency of _k-mers_ transitions from being common (solid) to rare (weak).
-- The first minimum in this valley is identified as a potential error threshold.
+## 5. **Run the Correction Process**
 
-### 3. **Handle Irregularities in Distribution (e.g., Consecutive Zeros)**
+- Load your reads and select an appropriate _k_ (e.g., `k = 21`).
+- Calculate _k-mer_ frequencies for all reads.
+- Iterate through each read to identify and correct errors based on _k-mer_ counts.
 
-- In some cases, there might be sections in the distribution where the count drops to zero for consecutive values. This happens when there are _k-count_ values with no corresponding _k-mers_.
-- The threshold is often set at the end of the first suitably long section of consecutive zeros. This section marks a clear boundary between common and rare _k-mers_.
-- The length of this zero section helps define the error threshold, as it signals that _k-mers_ beyond this point are too rare to be correct.
+```python
+# Sample usage
+reads = ["GAGCGAAAGGGCAGACGAAGAAGGACTCCAAGGAAAACTAAGACTCCTTCGCCTTCTGCACCAGACAAGTGAGTATGGAGCCTGGTAGGAATCAGCTGTT"]
+k = 21
 
-### 4. **Define the Error Threshold**
+kmer_counts = calculate_kmer_frequencies(reads, k)
+corrected_reads = correct_errors(reads, k, kmer_counts)
 
-- The error threshold (`ter`) is defined as the _k-mer_ count value at the end of this zero section or the first significant minimum point in the distribution.
-- This threshold is then used to classify _k-mers_: those with counts below the threshold are considered weak (potential errors), while those with counts equal to or above the threshold are treated as solid (likely correct).
+print(corrected_reads)
+```
 
-### Error Threshold Summary
+## Summary of the Steps
 
-- The error threshold is found by analyzing the distribution of _k-mer_ counts.
-- It is set at the point where the distribution has its first minimum or a prolonged drop (e.g., consecutive zeros).
-- This threshold helps separate solid _k-mers_ (correct) from weak _k-mers_ (likely errors), which can then be used to identify and correct sequencing errors.
+1. **Calculate _k-mer_ frequencies** for the given set of reads.
+2. **Set an error threshold** (e.g., 1 or 2) to identify error-prone _k-mers_.
+3. **Flag errors** in reads by checking _k-mer_ counts against the threshold.
+4. **Correct errors** by replacing the suspect base with the one that results in the highest _k-mer_ counts.
+5. **Return corrected reads**.
 
-## 3. **Identify Error Regions in the Sequence**
+## Notes
 
-- The sequence is scanned for regions where _k-mers_ have k-counts below the error threshold. These regions are flagged as potential error zones.
-- The flagged regions are grouped into clusters using a technique called variable bandwidth mean-shift clustering (to identify error areas more accurately).
-- After identifying these error sections, they can be extended in both directions to include adjacent _k-mers_ that might belong to the same error cluster.
-
-## 4. **Correct Errors in the Error Sections**
-
-- Once error regions are identified, the system attempts to correct them.
-- It analyzes the surrounding solid _k-mers_ to suggest a correction, replacing the weak _k-mers_ with more likely, high-frequency ones.
-- This process improves the accuracy of the DNA sequence data by fixing these error-prone regions.
-
-## Full Summary
-
-- **Phase 1:** Calculate how often each _k-mer_ appears in the sequence.
-- **Phase 2:** Find a threshold that separates common (solid) _k-mers_ from rare (weak) ones.
-- **Phase 3:** Identify regions in the DNA sequence where there are likely errors based on the threshold.
-- **Phase 4:** Correct the errors using information from the solid (correct) _k-mers_ around them.
-
-This method makes use of the natural repetition of DNA sequences to distinguish between real sequence data and sequencing errors.
+- Adjusting parameters like _k_ and the error threshold can significantly affect the performance and accuracy of the correction.
+- The algorithm works well for small reads and error rates typical of Illumina data, especially when sequencing depth is high (coverage `X ≥ 30`).
