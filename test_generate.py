@@ -13,7 +13,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
-# System Arguments
+# System Arguments (Format: test_generate.py <filename> <format> <num of sequences> <sequence length> <num of errors> <use seed (y/n)>
 try:
     FILENAME = sys.argv[1].lower()
     FORMAT = sys.argv[2].lower()
@@ -26,7 +26,6 @@ try:
         USESEED = 'n'
 except ValueError:
     sys.exit("Aborting execution: error parsing system arguments")
-
 
 
 def useSeed(seed):
@@ -84,7 +83,8 @@ def main():
     errorSeq = SeqRecord(
         Seq(errorSequence),
         id="illumina|test|seq"+str(0),
-        description="Generated test sample with "+str(ERRORNUM)+" errors for [illumina correction software]"
+        description="Generated test sample with " +
+        str(ERRORNUM)+" errors for [illumina correction software]"
     )
     seqObject.append(errorSeq)
     writeSeqFile(seqObject, FILENAME, FORMAT)
