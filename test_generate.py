@@ -17,7 +17,7 @@ from Bio import SeqIO
 # System Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('file_output', type=str,
-                    help='Name of output file', required=True)
+                    help='Name of output file')
 parser.add_argument('-t', '--type', type=str, default='fasta', choices=[
                     'fasta', 'fastq'], help='Specify file format (Default: FASTA)', required=True)
 parser.add_argument('-l', '--length', type=int, default=100,
