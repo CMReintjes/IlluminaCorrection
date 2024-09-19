@@ -7,6 +7,7 @@ Generate test data for Illumina Correction software into specified format
 # Import
 import os
 import sys
+import argparse
 import numpy as np
 
 from Bio.Seq import Seq
@@ -14,25 +15,30 @@ from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
 # System Arguments
-try:
-    FILENAME = sys.argv[1].lower()
-    FORMAT = sys.argv[2].lower()
-    SEQNUM = int(sys.argv[3])
-    LENGTH = int(sys.argv[4])
-    ERRORNUM = int(sys.argv[5])
-    try:
-        USESEED = sys.argv[6].lower()
-    except:
-        USESEED = 'n'
-except ValueError:
-    sys.exit("Aborting execution: error parsing system arguments")
+parser = argparse.ArgumentParser()
+parser.add_argument('file_output', type=str,
+                    help='Name of output file', required=True)
+parser.add_argument('-t', '--type', type=str, default='fasta', choices=[
+                    'fasta', 'fastq'], help='Specify file format (Default: FASTA)', required=True)
+parser.add_argument('-l', '--length', type=int, default=100,
+                    help='Length of nucleotide sequences to generate', required=True)
+parser.add_argument('-e', '--errors', type=int, default=1,
+                    help='Number of errors to generate', required=True)
+parser.add_argument('-n', '--number', type=int, default=5,
+                    help='Number of sequences to generate', required=True)
+parser.add_argument('-s', '--seed', type=int, default=42,
+                    help='Use seed to generate tests')
 
+args = parser.parse_args()
+FILENAME = args.file_output
+FORMAT = args.type
+SEQNUM = args.number
+LENGTH = args.length
+ERRORNUM = args.errors
 
-
-def useSeed(seed):
-    # Use seed for random generation
-    np.random.seed(seed)
-
+if args.seed:
+    np.random.seed(args.seed)
+    
 
 def genSequence(seqLen):
     # Generate a random nucleotide sequence of length <seqLen> and return
@@ -64,8 +70,6 @@ def writeSeqFile(seqObj, fileName, fileType):
 def main():
     global FILENAME, FORMAT, SEQNUM, LENGTH, ERRORNUM, USESEED
     seqObject = []
-    if USESEED == 'y':
-        useSeed(seed=42)
 
     # Generate the master sequence and add to SeqObject
     masterSequenceList = genSequence(LENGTH)
@@ -84,7 +88,8 @@ def main():
     errorSeq = SeqRecord(
         Seq(errorSequence),
         id="illumina|test|seq"+str(0),
-        description="Generated test sample with "+str(ERRORNUM)+" errors for [illumina correction software]"
+        description="Generated test sample with " +
+        str(ERRORNUM)+" errors for [illumina correction software]"
     )
     seqObject.append(errorSeq)
     writeSeqFile(seqObject, FILENAME, FORMAT)
