@@ -30,6 +30,8 @@ def parseArgs():
                         help='The minimum count a kmer must have to not be considered an error')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose output')
+    parser.add_argument('-o', '--output', type=str, default='corrected.reads',
+                        help='Enable secondary output file name')
 
     args = parser.parse_args()
     return args
@@ -114,6 +116,7 @@ def printSequences(kmer_length, sequence, pos, kmer):
     # Print out the new sequences and replacements when verbose is active
     pos-1
     if args.verbose:
+        print('Correcting sequence')
         [print(' ', end='') for j in range(pos)]
         print(kmer)
         print(sequence)
@@ -147,9 +150,10 @@ def makeNewSequence(kmer_length, sequence, pos, kmer, newKmer):
 
 def appendOutput(record):
     # Append the corrected sequences and sequence objects to the output file
-    outputName = 'corrected_reads'+args.format
+    outputName = args.output+'.'+args.format
     if args.verbose:
-        print(f'Attempting to open output file: {outputName}')
+        # print(f'Attempting to open output file: {outputName}')
+        pass
     try:
         with open(file=outputName, mode='a') as seqOut:
             SeqIO.write(record, seqOut, args.format)
@@ -158,7 +162,7 @@ def appendOutput(record):
     except FileNotFoundError:
         if args.verbose:
             print('Output file not found. Creating file and opening')
-        with open(file=outputName, mode='w') as output:
+        with open(file=outputName, mode='w') as seqOut:
             if args.verbose:
                 print(f'Output file creation successful')
             SeqIO.write(record, seqOut, args.format)
@@ -177,7 +181,7 @@ def checkSequences(kmer_frequency):
                 initialError, error = False, False
                 # Start reads at the beginning of sequence
                 for pos in range(0, len(sequence)-kmer_length+1):
-                    kmer = str(sequence[pos:pos+kmer_length])
+                    kmer = str(record.seq[pos:pos+kmer_length])
                     # Check if the kmer is under the error threshold and if there was a previous error
                     error, initialError = checkErrorState(
                         kmer_frequency[kmer], threshold, pos, initialError)
@@ -189,7 +193,7 @@ def checkSequences(kmer_frequency):
                             kmer_length, sequence, pos, kmer, newKmer)
                 # Run error checking in reverse do fix initial errors and verify
                 for pos in range(len(sequence)-kmer_length, -1, -1):
-                    kmer = sequence[pos:pos+kmer_length]
+                    kmer = record.seq[pos:pos+kmer_length]
                     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
                     if kmer_frequency[kmer] <= threshold:
                         newKmer = checkKmerCounts(
