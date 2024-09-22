@@ -7,7 +7,6 @@ Plot the distribution of the kmers on a histogram before and after correction
 
 # General Imports
 import argparse
-import logging
 from typing import final
 import numpy.random as npr
 
@@ -55,14 +54,20 @@ def getSequences():
     try:
         # Iterate through sequence file
         with open(file=args.file, mode='rt') as seqFile:
+            if args.verbose:
+                print(f'Successfully opened file: {args.file}')
             sio = SeqIO.parse(seqFile, args.format)
+            if args.verbose:
+                print(f'Successfully parsed file with format: {args.format}')
             # Iterate through position in nucleotide sequence
             for record in sio:
-                for pos in range(len(record.seq)-kmer_length):
+                # print(record.seq)
+                for pos in range(len(record.seq)-kmer_length+1):
                     # Create sub sequence of length n using string position
                     kmer = record.seq[pos:pos+kmer_length]
+                    # [print(' ',end='') for i in range(pos)]
+                    # print(kmer)
                     kmer_frequency = getKmerFrequency(kmer, kmer_frequency)
-
     except FileNotFoundError:
         print(f'File {args.file} not found')
 
@@ -87,7 +92,6 @@ def changeNucleotide(option, reverse):
 
 def checkKmerCounts(kmer, kmer_frequency, reverse):
     # Check the kmer against the count within the hashmap
-    threshold = args.threshold
     max_kmer = None
     # Make list of kmer options
     options = [list(kmer) for n in range(4)]
@@ -98,7 +102,7 @@ def checkKmerCounts(kmer, kmer_frequency, reverse):
         if options[i] in kmer_frequency:
             # print(f'{options[i]}: ', end='')
             if max_kmer == None or kmer_frequency[options[i]] > kmer_frequency[max_kmer]:
-                print(f'{kmer_frequency[options[i]]}')
+                # print(f'{kmer_frequency[options[i]]}')
                 max_kmer = options[i]
             # Replace kmer with the kmer with highest frequency
             kmer = max_kmer
@@ -106,10 +110,11 @@ def checkKmerCounts(kmer, kmer_frequency, reverse):
     return kmer
 
 
-def printSequences(kmer_length, sequence, pos, kmer, newKmer):
+def printSequences(kmer_length, sequence, pos, kmer):
     # Print out the new sequences and replacements when verbose is active
+    pos-1
     if args.verbose:
-        [print(' ',end='') for j in range(pos+1)]
+        [print(' ', end='') for j in range(pos)]
         print(kmer)
         print(sequence)
 
@@ -126,7 +131,7 @@ def checkErrorState(frequency, threshold, pos, initialError):
         initialError = False
         return False, initialError
     elif frequency <= threshold:
-        return True
+        return True, initialError
     else:
         return False, False
 
@@ -136,26 +141,29 @@ def makeNewSequence(kmer_length, sequence, pos, kmer, newKmer):
         newSeq = str(sequence[:pos])+newKmer + \
             str(sequence[pos+kmer_length:])
         sequence = newSeq
-    printSequences(kmer_length, sequence, pos, kmer, newKmer)
+        printSequences(kmer_length, sequence, pos, kmer)
     return sequence
 
 
-def appendOutput(args):
+def appendOutput(record):
     # Append the corrected sequences and sequence objects to the output file
     outputName = 'corrected_reads'+args.format
     if args.verbose:
         print(f'Attempting to open output file: {outputName}')
-
     try:
-        with open(file=outputName, mode='a'):
-            pass
+        with open(file=outputName, mode='a') as seqOut:
+            SeqIO.write(record, seqOut, args.format)
+            if args.verbose:
+                print(f'Successfully wrote record to {outputName}')
     except FileNotFoundError:
         if args.verbose:
             print('Output file not found. Creating file and opening')
-        with open(file=outputName, mode='w'):
+        with open(file=outputName, mode='w') as output:
             if args.verbose:
                 print(f'Output file creation successful')
-            pass
+            SeqIO.write(record, seqOut, args.format)
+            if args.verbose:
+                print(f'Successfully wrote record to {outputName}')
 
 
 def checkSequences(kmer_frequency):
@@ -166,10 +174,10 @@ def checkSequences(kmer_frequency):
         with open(file=args.file, mode='rt') as seqFile:
             for record in SeqIO.parse(seqFile, args.format):
                 sequence = record.seq
-                initialError,error = False, False
+                initialError, error = False, False
                 # Start reads at the beginning of sequence
-                for pos in range(len(sequence)-kmer_length):
-                    kmer = record.seq[pos:pos+kmer_length]
+                for pos in range(0, len(sequence)-kmer_length+1):
+                    kmer = str(sequence[pos:pos+kmer_length])
                     # Check if the kmer is under the error threshold and if there was a previous error
                     error, initialError = checkErrorState(
                         kmer_frequency[kmer], threshold, pos, initialError)
@@ -180,25 +188,24 @@ def checkSequences(kmer_frequency):
                         sequence = makeNewSequence(
                             kmer_length, sequence, pos, kmer, newKmer)
                 # Run error checking in reverse do fix initial errors and verify
-                print(sequence)
                 for pos in range(len(sequence)-kmer_length, -1, -1):
-                    kmer = record.seq[pos:pos+kmer_length+1]
+                    kmer = sequence[pos:pos+kmer_length]
                     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
                     if kmer_frequency[kmer] <= threshold:
                         newKmer = checkKmerCounts(
                             kmer, kmer_frequency, reverse=True)
                         sequence = makeNewSequence(
                             kmer_length, sequence, pos, kmer, newKmer)
-                
+                appendOutput(record)
     except FileNotFoundError:
         print(f'File {args.file} not found.')
 
 
 def main():
     kmer_frequency = getSequences()
+    # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
     checkSequences(kmer_frequency)
 
 
 args = parseArgs()
-
 main()

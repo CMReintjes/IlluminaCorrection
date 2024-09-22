@@ -20,11 +20,11 @@ parser.add_argument('file_output', type=str,
                     help='Name of output file')
 parser.add_argument('-t', '--type', type=str, default='fasta', choices=[
                     'fasta', 'fastq'], help='Specify file format (Default: FASTA)', required=True)
-parser.add_argument('-l', '--length', type=int, default=100,
+parser.add_argument('-l', '--length', type=int, default=150,
                     help='Length of nucleotide sequences to generate', required=True)
-parser.add_argument('-e', '--errors', type=int, default=1,
+parser.add_argument('-e', '--errors', type=int, default=2,
                     help='Number of errors to generate', required=True)
-parser.add_argument('-n', '--number', type=int, default=5,
+parser.add_argument('-n', '--number', type=int, default=30,
                     help='Number of sequences to generate', required=True)
 parser.add_argument('-s', '--seed', type=int, default=42,
                     help='Use seed to generate tests')
