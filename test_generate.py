@@ -38,7 +38,7 @@ ERRORNUM = args.errors
 
 if args.seed:
     np.random.seed(args.seed)
-    
+
 
 def genSequence(seqLen):
     # Generate a random nucleotide sequence of length <seqLen> and return
@@ -76,7 +76,7 @@ def main():
     masterSeq = ''.join(masterSequenceList)
     for i in range(1, SEQNUM):
         tempSeq = SeqRecord(
-            Seq(masterSeq),
+            seq=Seq(masterSeq),
             id="illumina|test|seq"+str(i),
             description="Generated test sample for [illumina correction software]"
         )
@@ -86,7 +86,7 @@ def main():
     errorSequenceList = genRandomError(masterSequenceList, ERRORNUM)
     errorSequence = ''.join(errorSequenceList)
     errorSeq = SeqRecord(
-        Seq(errorSequence),
+        seq=Seq(errorSequence),
         id="illumina|test|seq"+str(0),
         description="Generated test sample with " +
         str(ERRORNUM)+" errors for [illumina correction software]"
