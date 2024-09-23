@@ -80,11 +80,13 @@ def getSequences():
 def changeNucleotide(option, reverse):
     # Change the nucleotide at position before returning sequence
     kmer_length = args.kmer_size
-    if reverse != True:
-        option[kmer_length -
-               1] = npr.choice(list('ATGC'), replace=False)
-    else:
-        option[0] = npr.choice(list('ATGC'), replace=False)
+    nucleotides = ['A', 'C', 'G', 'T']
+    for i in range(len(nucleotides)):
+        if reverse != True:
+            option[kmer_length -
+                   1] = nucleotides[i]
+        else:
+            option[0] = nucleotides[i]
     # Join kmer together
     option = ''.join(option)
     # Compare all variants in <options> to determine error free kmer
@@ -101,7 +103,9 @@ def checkKmerCounts(kmer, kmer_frequency, reverse):
         options[i] = changeNucleotide(option=options[i], reverse=reverse)
         # Compare all variants in <options> to determine error free kmer
         if options[i] in kmer_frequency:
-            # print(f'{options[i]}: ', end='')
+            if args.verbose:
+                print(f'{options[i]}: {kmer_frequency[options[i]]}')
+
             if max_kmer == None or kmer_frequency[options[i]] > kmer_frequency[max_kmer]:
                 # print(f'{kmer_frequency[options[i]]}')
                 max_kmer = options[i]
@@ -191,7 +195,8 @@ def checkSequences(kmer_frequency):
                     except KeyError:
                         if args.verbose:
                             print("Problem fixing error: Kmer not in hash")
-                            printSequences(kmer_length, sequence, pos, kmer, newKmer)
+                            printSequences(kmer_length, sequence,
+                                           pos, kmer, newKmer)
                     if error:
                         # Perform check on kmer variants and return valid
                         newKmer = checkKmerCounts(
@@ -200,8 +205,8 @@ def checkSequences(kmer_frequency):
                             kmer_length, sequence, pos, kmer, newKmer)
                 # Run error checking in reverse do fix initial errors and verify
                 if args.verbose:
-                   print('Reverse Checking Sequence')
-                
+                    print('Reverse Checking Sequence')
+
                 for pos in range(len(sequence)-kmer_length, -1, -1):
                     kmer = str(sequence[pos:pos+kmer_length])
                     # kmer = str(record.seq[pos:pos+kmer_length])
