@@ -11,7 +11,6 @@ from typing import final
 import numpy.random as npr
 
 # Biopython Imports
-import Bio
 from Bio import SeqIO
 from Bio import Seq
 
@@ -30,7 +29,7 @@ def parseArgs():
                         help='The minimum count a kmer must have to not be considered an error')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose output')
-    parser.add_argument('-o', '--output', type=str, default='corrected.reads',
+    parser.add_argument('-o', '--output', type=str, default='corrected_reads',
                         help='Enable secondary output file name')
 
     args = parser.parse_args()
@@ -112,13 +111,15 @@ def checkKmerCounts(kmer, kmer_frequency, reverse):
     return kmer
 
 
-def printSequences(kmer_length, sequence, pos, kmer):
+def printSequences(kmer_length, sequence, pos, kmer, new_kmer):
     # Print out the new sequences and replacements when verbose is active
     pos-1
     if args.verbose:
         print('Correcting sequence')
         [print(' ', end='') for j in range(pos)]
         print(kmer)
+        [print(' ', end='') for j in range(pos)]
+        print(new_kmer)
         print(sequence)
 
 
@@ -144,7 +145,7 @@ def makeNewSequence(kmer_length, sequence, pos, kmer, newKmer):
         newSeq = str(sequence[:pos])+newKmer + \
             str(sequence[pos+kmer_length:])
         sequence = newSeq
-        printSequences(kmer_length, sequence, pos, kmer)
+        printSequences(kmer_length, sequence, pos, kmer, newKmer)
     return sequence
 
 
@@ -181,10 +182,16 @@ def checkSequences(kmer_frequency):
                 initialError, error = False, False
                 # Start reads at the beginning of sequence
                 for pos in range(0, len(sequence)-kmer_length+1):
-                    kmer = str(record.seq[pos:pos+kmer_length])
+                    kmer = str(sequence[pos:pos+kmer_length])
+                    # kmer = str(record.seq[pos:pos+kmer_length])
                     # Check if the kmer is under the error threshold and if there was a previous error
-                    error, initialError = checkErrorState(
-                        kmer_frequency[kmer], threshold, pos, initialError)
+                    try:
+                        error, initialError = checkErrorState(
+                            kmer_frequency[kmer], threshold, pos, initialError)
+                    except KeyError:
+                        if args.verbose:
+                            print("Problem fixing error: Kmer not in hash")
+                            printSequences(kmer_length, sequence, pos, kmer, newKmer)
                     if error:
                         # Perform check on kmer variants and return valid
                         newKmer = checkKmerCounts(
@@ -192,8 +199,12 @@ def checkSequences(kmer_frequency):
                         sequence = makeNewSequence(
                             kmer_length, sequence, pos, kmer, newKmer)
                 # Run error checking in reverse do fix initial errors and verify
+                if args.verbose:
+                   print('Reverse Checking Sequence')
+                
                 for pos in range(len(sequence)-kmer_length, -1, -1):
-                    kmer = record.seq[pos:pos+kmer_length]
+                    kmer = str(sequence[pos:pos+kmer_length])
+                    # kmer = str(record.seq[pos:pos+kmer_length])
                     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
                     if kmer_frequency[kmer] <= threshold:
                         newKmer = checkKmerCounts(
