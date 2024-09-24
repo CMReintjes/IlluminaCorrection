@@ -48,6 +48,11 @@ def getKmerFrequency(kmer, kmer_frequency):
     return kmer_frequency
 
 
+def dropKmerFrequency(kmer, kmer_frequency):
+    "Drop kmer from the frequency dictionary"
+    pass
+
+
 def getSequences(file):
     # Get the frequency at which each kmer appears within the illumina file
     kmer_frequency = {}
@@ -67,14 +72,9 @@ def getSequences(file):
                 for pos in range(len(record.seq)-kmer_length+1):
                     # Create sub sequence of length n using string position
                     kmer = record.seq[pos:pos+kmer_length]
-                    # [print(' ',end='') for i in range(pos)]
-                    # print(kmer)
                     kmer_frequency = getKmerFrequency(kmer, kmer_frequency)
     except FileNotFoundError:
         print(f'File {args.file} not found')
-
-    '''with open('sequence_output.txt', 'w') as outputFile:
-        outputFile.write(str(kmer_frequency))'''
     return kmer_frequency
 
 
