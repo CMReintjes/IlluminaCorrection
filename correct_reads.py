@@ -234,7 +234,7 @@ def checkSequences(args, kmer_frequency):
                             newKmer = checkKmerCounts(args,
                                 kmer, kmer_frequency, reverse=True)
                             sequence = makeNewSequence(
-                                kmer_length, sequence, pos, kmer, newKmer)
+                                kmer_length=kmer_length, sequence=sequence, pos=pos, kmer=kmer, newKmer=newKmer)
                     except KeyError:
                         if args.verbose:
                             print(
@@ -259,7 +259,7 @@ def main(args):
     plotHistogram(kmer_frequency)
     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
     checkSequences(kmer_frequency)
-    corrected_frequency = getSequences(file=args.output+'.'+args.format)
+    corrected_frequency = getSequences(args)
     exportFrequency(corrected_frequency, 'corrected.txt')
     plotHistogram(corrected_frequency)
 
