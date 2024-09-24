@@ -48,8 +48,10 @@ def getKmerFrequency(kmer, kmer_frequency):
     return kmer_frequency
 
 
-def getSequences(file):
+def getSequences(args):
     # Get the frequency at which each kmer appears within the illumina file
+    file = args.file
+    format = args.format
     kmer_frequency = {}
     kmer_length = args.kmer_size
     # file_format = args.format
@@ -57,10 +59,10 @@ def getSequences(file):
         # Iterate through sequence file
         with open(file, mode='rt') as seqFile:
             if args.verbose:
-                print(f'Successfully opened file: {args.file}')
-            sio = SeqIO.parse(seqFile, args.format)
+                print(f'Successfully opened file: {file}')
+            sio = SeqIO.parse(seqFile, format)
             if args.verbose:
-                print(f'Successfully parsed file with format: {args.format}')
+                print(f'Successfully parsed file with format: {format}')
             # Iterate through position in nucleotide sequence
             for record in sio:
                 # print(record.seq)
@@ -71,14 +73,14 @@ def getSequences(file):
                     # print(kmer)
                     kmer_frequency = getKmerFrequency(kmer, kmer_frequency)
     except FileNotFoundError:
-        print(f'File {args.file} not found')
+        print(f'File {file} not found')
 
     '''with open('sequence_output.txt', 'w') as outputFile:
         outputFile.write(str(kmer_frequency))'''
     return kmer_frequency
 
 
-def changeNucleotide(option, reverse, nuc):
+def changeNucleotide(args, option, reverse, nuc):
     # Change the nucleotide at position before returning sequence
     kmer_length = args.kmer_size
     nucleotides = ['A', 'C', 'G', 'T']
@@ -94,7 +96,7 @@ def changeNucleotide(option, reverse, nuc):
     return option
 
 
-def checkKmerCounts(kmer, kmer_frequency, reverse):
+def checkKmerCounts(args, kmer, kmer_frequency, reverse):
     # Check the kmer against the count within the hashmap
     max_kmer = None
     # Make list of kmer options
@@ -102,7 +104,7 @@ def checkKmerCounts(kmer, kmer_frequency, reverse):
     nucleotides = ['A', 'C', 'G', 'T']
     # print(f'Options:')
     for i in range(4):
-        options[i] = changeNucleotide(
+        options[i] = changeNucleotide(args=args,
             option=options[i], reverse=reverse, nuc=i)
         if args.verbose:
             try:
@@ -158,7 +160,7 @@ def makeNewSequence(kmer_length, sequence, pos, kmer, newKmer):
     return sequence
 
 
-def appendOutput(record):
+def appendOutput(args, record):
     # Append the corrected sequences and sequence objects to the output file
     outputName = args.output+'.'+args.format
     if args.verbose:
@@ -190,7 +192,7 @@ def plotHistogram(kmer_frequency):
     plt.show()
 
 
-def checkSequences(kmer_frequency):
+def checkSequences(args, kmer_frequency):
     # Check the sequences for errors using kmer counts
     kmer_length = args.kmer_size
     threshold = args.threshold
@@ -215,7 +217,7 @@ def checkSequences(kmer_frequency):
                                            pos, kmer, str(record.seq[pos:pos+kmer_length]))
                     if error:
                         # Perform check on kmer variants and return valid
-                        newKmer = checkKmerCounts(
+                        newKmer = checkKmerCounts(args,
                             kmer, kmer_frequency, reverse=False)
                         sequence = makeNewSequence(
                             kmer_length, sequence, pos, kmer, newKmer)
@@ -229,7 +231,7 @@ def checkSequences(kmer_frequency):
                     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
                     try:
                         if kmer_frequency[kmer] <= threshold:
-                            newKmer = checkKmerCounts(
+                            newKmer = checkKmerCounts(args,
                                 kmer, kmer_frequency, reverse=True)
                             sequence = makeNewSequence(
                                 kmer_length, sequence, pos, kmer, newKmer)
@@ -239,7 +241,7 @@ def checkSequences(kmer_frequency):
                                 "Forward Checking Sequence\nProblem fixing error: Kmer not in hash\n")
                             printSequences(kmer_length, sequence,
                                            pos, kmer, str(record.seq[pos:pos+kmer_length]))
-                appendOutput(record)
+                appendOutput(args, record)
     except FileNotFoundError:
         print(f'File {args.file} not found.')
 
@@ -250,8 +252,9 @@ def exportFrequency(kmer_frequency, fileName):
             output.write(f'{str(key)}: {value}\n')
 
 
-def main():
-    kmer_frequency = getSequences(file=args.file)
+def main(args):
+    args = parseArgs()
+    kmer_frequency = getSequences(args)
     exportFrequency(kmer_frequency, 'frequency.txt')
     plotHistogram(kmer_frequency)
     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
@@ -261,5 +264,6 @@ def main():
     plotHistogram(corrected_frequency)
 
 
-args = parseArgs()
-main()
+args = None
+if __name__ == '__main__':
+    main(args)
