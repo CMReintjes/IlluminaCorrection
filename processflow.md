@@ -1,6 +1,6 @@
 # Process Flow
 
-In this assignment, the task is to develop a basic Illumina read error correction software that leverages _k-mer_ frequencies to identify and fix errors in sequencing reads. Here’s how you can break down the error correction process into a series of steps:
+The objective of this assignment is to develop a basic Illumina read error correction software that uses _k-mer_ frequencies and an error threshold to identify and fix errors in sequenced reads.
 
 ## 1. **Calculate k-mer Frequencies**
 
@@ -8,34 +8,42 @@ In this assignment, the task is to develop a basic Illumina read error correctio
 - **Output:** A hash map or dictionary that stores the counts of each _k-mer_ across all the reads.
 - For each read, generate all possible _k-mers_ (substrings of length `k`). Use a hash map to count the occurrences of each _k-mer_.
 
-## 2. **Determine the Error Threshold**
+### 1.1. **Create Histogram of Frequencies**
 
-- Since the genome coverage is `X = 30`, the average _k-mer_ count for true sequences should be around 30.
-- The threshold can be set to a low count (e.g., 1 or 2) to identify _k-mers_ that likely contain errors. This means any _k-mer_ with a count below this threshold is considered an error.
+- Create a histogram of the kmer frequency distribution
+- Use `seaborn` or `pyplot`
 
-## 3. **Identify Potential Errors in the Reads**
+## 2. **Identify Potential Errors in the Reads**
 
 - For each read, slide through it and generate _k-mers_. If a _k-mer_ has a count below the error threshold, the base in that region is flagged as a potential error.
 
-## 4. **Correct Errors**
+## 3. **Correct Errors**
 
 - For each flagged error position, change the base to one of the three other possible nucleotides (A, T, G, C).
 - Generate new _k-mers_ using the modified base and check their counts in the _k-mer_ frequency hash map.
 - Select the base that results in _k-mers_ with the highest counts.
 
-## 5. **Run the Correction Process**
+### 3.1. **Kmer Frequency Re-Hash**
 
-- Load your reads and select an appropriate _k_ (e.g., `k = 21`).
-- Calculate _k-mer_ frequencies for all reads.
-- Iterate through each read to identify and correct errors based on _k-mer_ counts.
+- The kmer frequencies may have to be rehashed for that particular sequence due to changin the nucleotide.
+- This is to prevent `KeyErrors`
+
+## 4. **Check the Correction Process**
+
+- Load the corrected reads and re-hash the kmers.
+- Check for any remaining errors within the reads.
+
+### 4.1. File Output and Histogram
+
+- Output the corrected reads to a file of same format as input
+- Output a histogram of the kmer distribution
 
 ## Summary of the Steps
 
 1. **Calculate _k-mer_ frequencies** for the given set of reads.
-2. **Set an error threshold** (e.g., 1 or 2) to identify error-prone _k-mers_.
-3. **Flag errors** in reads by checking _k-mer_ counts against the threshold.
-4. **Correct errors** by replacing the suspect base with the one that results in the highest _k-mer_ counts.
-5. **Return corrected reads**.
+2. **Flag errors** in reads by checking _k-mer_ counts against the threshold.
+3. **Correct errors** by replacing the suspect base with the one that results in the highest _k-mer_ counts.
+4. **Return corrected reads**.
 
 ## Notes
 
