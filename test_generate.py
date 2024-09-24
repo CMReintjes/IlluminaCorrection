@@ -28,6 +28,8 @@ parser.add_argument('-n', '--number', type=int, default=30,
                     help='Number of sequences to generate', required=True)
 parser.add_argument('-s', '--seed', type=int, default=42,
                     help='Use seed to generate tests')
+parser.add_argument('-a', '--append', action='store_true',
+                    help='Append current file instead overwriting')
 
 args = parser.parse_args()
 FILENAME = args.file_output
@@ -63,7 +65,11 @@ def genRandomError(seqList, n):
 
 def writeSeqFile(seqObj, fileName, fileType):
     # Write the sequences out into a file with name <fileName>
-    SeqIO.write(seqObj, fileName, fileType)
+    writeType = 'w'
+    if args.append:
+        writeType = 'a'
+    with open(fileName, writeType) as sio:
+        SeqIO.write(seqObj, sio, fileType)
     print("Successful")
 
 
