@@ -77,18 +77,18 @@ def getSequences():
     return kmer_frequency
 
 
-def changeNucleotide(option, reverse):
+def changeNucleotide(option, reverse, nuc):
     # Change the nucleotide at position before returning sequence
     kmer_length = args.kmer_size
     nucleotides = ['A', 'C', 'G', 'T']
-    for i in range(len(nucleotides)):
-        if reverse != True:
-            option[kmer_length -
-                   1] = nucleotides[i]
-        else:
-            option[0] = nucleotides[i]
+    if reverse != True:
+        option[kmer_length -
+                1] = nucleotides[nuc]
+    else:
+        option[0] = nucleotides[nuc]
     # Join kmer together
     option = ''.join(option)
+
     # Compare all variants in <options> to determine error free kmer
     return option
 
@@ -100,12 +100,14 @@ def checkKmerCounts(kmer, kmer_frequency, reverse):
     options = [list(kmer) for n in range(4)]
     # print(f'Options:')
     for i in range(4):
-        options[i] = changeNucleotide(option=options[i], reverse=reverse)
+        options[i] = changeNucleotide(option=options[i], reverse=reverse, nuc=i)
+        if args.verbose:
+            try:
+                print(f'{options[i]}: {kmer_frequency[options[i]]}')
+            except KeyError:
+                print(f'{options[i]}: 0')
         # Compare all variants in <options> to determine error free kmer
         if options[i] in kmer_frequency:
-            if args.verbose:
-                print(f'{options[i]}: {kmer_frequency[options[i]]}')
-
             if max_kmer == None or kmer_frequency[options[i]] > kmer_frequency[max_kmer]:
                 # print(f'{kmer_frequency[options[i]]}')
                 max_kmer = options[i]
@@ -194,9 +196,9 @@ def checkSequences(kmer_frequency):
                             kmer_frequency[kmer], threshold, pos, initialError)
                     except KeyError:
                         if args.verbose:
-                            print("Problem fixing error: Kmer not in hash")
+                            print("Forward Checking Sequence\nProblem fixing error: Kmer not in hash\n")
                             printSequences(kmer_length, sequence,
-                                           pos, kmer, newKmer)
+                                           pos, kmer, str(record.seq[pos:pos+kmer_length]))
                     if error:
                         # Perform check on kmer variants and return valid
                         newKmer = checkKmerCounts(
