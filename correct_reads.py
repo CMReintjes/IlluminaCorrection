@@ -48,9 +48,18 @@ def getKmerFrequency(kmer, kmer_frequency):
     return kmer_frequency
 
 
-def getSequences(args):
+def reduceKmerFrequency(kmer, kmer_frequency):
+    # Iterate through the file and hash kmers
+    # If kmer in hash, increment frequency downward. If frequency is 0, drop key from dictionary
+    if kmer in kmer_frequency:
+        kmer_frequency[kmer] -= 1
+        if kmer_frequency[kmer] == 0:
+            kmer_frequency.pop(kmer)
+    return kmer_frequency
+
+
+def getSequences(args, file):
     # Get the frequency at which each kmer appears within the illumina file
-    file = args.file
     format = args.format
     kmer_frequency = {}
     kmer_length = args.kmer_size
@@ -66,17 +75,27 @@ def getSequences(args):
             # Iterate through position in nucleotide sequence
             for record in sio:
                 # print(record.seq)
-                for pos in range(len(record.seq)-kmer_length+1):
-                    # Create sub sequence of length n using string position
-                    kmer = record.seq[pos:pos+kmer_length]
-                    # [print(' ',end='') for i in range(pos)]
-                    # print(kmer)
-                    kmer_frequency = getKmerFrequency(kmer, kmer_frequency)
+                kmer_frequency = add_kmers(
+                    kmer_frequency, kmer_length, record.seq)
     except FileNotFoundError:
         print(f'File {file} not found')
+    return kmer_frequency
 
-    '''with open('sequence_output.txt', 'w') as outputFile:
-        outputFile.write(str(kmer_frequency))'''
+
+def add_kmers(kmer_frequency, kmer_length, sequence):
+    for pos in range(len(sequence)-kmer_length+1):
+        # Create sub sequence of length n using string position
+        kmer = sequence[pos:pos+kmer_length]
+        kmer_frequency = getKmerFrequency(kmer, kmer_frequency)
+    return kmer_frequency
+
+
+def drop_kmers(kmer_frequency, kmer_length, sequence):
+    "Drop occurance of kmers from hash in current sequence"
+    for pos in range(len(sequence)-kmer_length+1):
+        # Create sub sequence of length n using string position
+        kmer = sequence[pos:pos+kmer_length]
+        kmer_frequency = reduceKmerFrequency(kmer, kmer_frequency)
     return kmer_frequency
 
 
@@ -105,7 +124,7 @@ def checkKmerCounts(args, kmer, kmer_frequency, reverse):
     # print(f'Options:')
     for i in range(4):
         options[i] = changeNucleotide(args=args,
-            option=options[i], reverse=reverse, nuc=i)
+                                      option=options[i], reverse=reverse, nuc=i)
         if args.verbose:
             try:
                 print(f'{options[i]}: {kmer_frequency[options[i]]}')
@@ -122,11 +141,10 @@ def checkKmerCounts(args, kmer, kmer_frequency, reverse):
     return kmer
 
 
-def printSequences(kmer_length, sequence, pos, kmer, new_kmer):
+def printSequences(args, sequence, pos, kmer, new_kmer):
     # Print out the new sequences and replacements when verbose is active
     pos-1
     if args.verbose:
-        print('Correcting sequence')
         [print(' ', end='') for j in range(pos)]
         print(kmer)
         [print(' ', end='') for j in range(pos)]
@@ -151,12 +169,12 @@ def checkErrorState(frequency, threshold, pos, initialError):
         return False, False
 
 
-def makeNewSequence(kmer_length, sequence, pos, kmer, newKmer):
+def makeNewSequence(args, kmer_length, sequence, pos, kmer, newKmer):
     if kmer != newKmer:
         newSeq = str(sequence[:pos])+newKmer + \
             str(sequence[pos+kmer_length:])
         sequence = newSeq
-        printSequences(kmer_length, sequence, pos, kmer, newKmer)
+        printSequences(args, sequence, pos, kmer, newKmer)
     return sequence
 
 
@@ -204,7 +222,7 @@ def checkSequences(args, kmer_frequency):
                 # Start reads at the beginning of sequence
                 for pos in range(0, len(sequence)-kmer_length+1):
                     # kmer = str(sequence[pos:pos+kmer_length])
-                    kmer = str(record.seq[pos:pos+kmer_length])
+                    kmer = str(sequence[pos:pos+kmer_length])
                     # Check if the kmer is under the error threshold and if there was a previous error
                     try:
                         error, initialError = checkErrorState(
@@ -213,18 +231,20 @@ def checkSequences(args, kmer_frequency):
                         if args.verbose:
                             print(
                                 "Forward Checking Sequence\nProblem fixing error: Kmer not in hash\n")
-                            printSequences(kmer_length, sequence,
+                            printSequences(args, sequence,
                                            pos, kmer, str(record.seq[pos:pos+kmer_length]))
                     if error:
                         # Perform check on kmer variants and return valid
                         newKmer = checkKmerCounts(args,
-                            kmer, kmer_frequency, reverse=False)
-                        sequence = makeNewSequence(
-                            kmer_length, sequence, pos, kmer, newKmer)
-                # Run error checking in reverse do fix initial errors and verify
-                if args.verbose:
-                    print('Reverse Checking Sequence')
+                                                  kmer, kmer_frequency, reverse=False)
+                        kmer_frequency = drop_kmers(
+                            kmer_frequency, kmer_length, sequence)
+                        sequence = makeNewSequence(args,
+                                                   kmer_length, sequence, pos, kmer, newKmer)
+                        kmer_frequency = add_kmers(
+                            kmer_frequency, kmer_length, sequence)
 
+                # Run error checking in reverse do fix initial errors and verify
                 for pos in range(len(sequence)-kmer_length, -1, -1):
                     kmer = str(sequence[pos:pos+kmer_length])
                     # kmer = str(record.seq[pos:pos+kmer_length])
@@ -232,14 +252,18 @@ def checkSequences(args, kmer_frequency):
                     try:
                         if kmer_frequency[kmer] <= threshold:
                             newKmer = checkKmerCounts(args,
-                                kmer, kmer_frequency, reverse=True)
-                            sequence = makeNewSequence(
-                                kmer_length=kmer_length, sequence=sequence, pos=pos, kmer=kmer, newKmer=newKmer)
+                                                      kmer, kmer_frequency, reverse=True)
+                            kmer_frequency = drop_kmers(
+                                kmer_frequency, kmer_length, sequence)
+                            sequence = makeNewSequence(args,
+                                                       kmer_length, sequence, pos, kmer, newKmer)
+                            kmer_frequency = add_kmers(
+                                kmer_frequency, kmer_length, sequence)
                     except KeyError:
                         if args.verbose:
                             print(
-                                "Forward Checking Sequence\nProblem fixing error: Kmer not in hash\n")
-                            printSequences(kmer_length, sequence,
+                                "Problem fixing error: Kmer not in hash\n")
+                            printSequences(args, sequence,
                                            pos, kmer, str(record.seq[pos:pos+kmer_length]))
                 appendOutput(args, record)
     except FileNotFoundError:
@@ -254,14 +278,17 @@ def exportFrequency(kmer_frequency, fileName):
 
 def main(args):
     args = parseArgs()
-    kmer_frequency = getSequences(args)
-    exportFrequency(kmer_frequency, 'frequency.txt')
+    kmer_frequency = getSequences(args, args.file)
+    #exportFrequency(kmer_frequency, 'frequency.txt')
     plotHistogram(kmer_frequency)
     # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
-    checkSequences(kmer_frequency)
-    corrected_frequency = getSequences(args)
-    exportFrequency(corrected_frequency, 'corrected.txt')
+    checkSequences(args, kmer_frequency)
+    outputFile = args.output+'.'+args.format
+    corrected_frequency = getSequences(args, outputFile)
+    print(f"Illumina file {args.file} error check successful.\nCorrected output: {outputFile}")
+    #exportFrequency(corrected_frequency, 'corrected.txt')
     plotHistogram(corrected_frequency)
+
 
 
 args = None
