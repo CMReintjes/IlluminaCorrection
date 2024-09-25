@@ -48,11 +48,6 @@ def getKmerFrequency(kmer, kmer_frequency):
     return kmer_frequency
 
 
-def dropKmerFrequency(kmer, kmer_frequency):
-    "Drop kmer from the frequency dictionary"
-    pass
-
-
 def getSequences(file):
     # Get the frequency at which each kmer appears within the illumina file
     kmer_frequency = {}
