@@ -7,18 +7,18 @@ Plot the distribution of the kmers on a histogram before and after correction
 
 # General Imports
 import argparse
-from typing import final
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Biopython Imports
+import Bio
 from Bio import SeqIO
 from Bio import Seq
 
 
-def parseArgs():
-    # Initialize argument parser
-    # correct_reads.py <reads to correct> <format> <kmer size> <threshold>
+def parse_Args():
+    "Initialize argument parser"
+    "correct_reads.py <reads to correct> <format> <kmer size> <threshold>"
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str,
                         help='A file of Illumina reads that are to be corrected')
@@ -37,87 +37,17 @@ def parseArgs():
     return args
 
 
-def getKmerFrequency(kmer, kmer_frequency):
-    # Iterate through the file and hash kmers
-    # If kmer in hash, increment frequency, if not, add key with value 1
-    if kmer in kmer_frequency:
-        kmer_frequency[kmer] += 1
-    else:
-        kmer_frequency[kmer] = 1
-
-    return kmer_frequency
+def plot_Histogram(frequency):
+    "Plot the kmer frequency using a seaborn histogram"
+    sns.histplot(list(frequency.values()), bins=30)
+    plt.xlabel('Kmer Frequency')
+    plt.ylabel('Number of Kmers')
+    plt.title('Histogram of Kmer Frequency Distribution Values')
+    plt.show()
 
 
-def getSequences(file):
-    # Get the frequency at which each kmer appears within the illumina file
-    kmer_frequency = {}
-    kmer_length = args.kmer_size
-    # file_format = args.format
-    try:
-        # Iterate through sequence file
-        with open(file, mode='rt') as seqFile:
-            if args.verbose:
-                print(f'Successfully opened file: {args.file}')
-            sio = SeqIO.parse(seqFile, args.format)
-            if args.verbose:
-                print(f'Successfully parsed file with format: {args.format}')
-            # Iterate through position in nucleotide sequence
-            for record in sio:
-                # print(record.seq)
-                for pos in range(len(record.seq)-kmer_length+1):
-                    # Create sub sequence of length n using string position
-                    kmer = record.seq[pos:pos+kmer_length]
-                    kmer_frequency = getKmerFrequency(kmer, kmer_frequency)
-    except FileNotFoundError:
-        print(f'File {args.file} not found')
-    return kmer_frequency
-
-
-def changeNucleotide(option, reverse, nuc):
-    # Change the nucleotide at position before returning sequence
-    kmer_length = args.kmer_size
-    nucleotides = ['A', 'C', 'G', 'T']
-    if reverse != True:
-        option[kmer_length -
-               1] = nucleotides[nuc]
-    else:
-        option[0] = nucleotides[nuc]
-    # Join kmer together
-    option = ''.join(option)
-
-    # Compare all variants in <options> to determine error free kmer
-    return option
-
-
-def checkKmerCounts(kmer, kmer_frequency, reverse):
-    # Check the kmer against the count within the hashmap
-    max_kmer = None
-    # Make list of kmer options
-    options = [list(kmer) for n in range(4)]
-    nucleotides = ['A', 'C', 'G', 'T']
-    # print(f'Options:')
-    for i in range(4):
-        options[i] = changeNucleotide(
-            option=options[i], reverse=reverse, nuc=i)
-        if args.verbose:
-            try:
-                print(f'{options[i]}: {kmer_frequency[options[i]]}')
-            except KeyError:
-                print(f'{options[i]}: 0')
-        # Compare all variants in <options> to determine error free kmer
-        if options[i] in kmer_frequency:
-            if max_kmer == None or kmer_frequency[options[i]] > kmer_frequency[max_kmer]:
-                # print(f'{kmer_frequency[options[i]]}')
-                max_kmer = options[i]
-            # Replace kmer with the kmer with highest frequency
-            kmer = max_kmer
-    # Return kmer
-    return kmer
-
-
-def printSequences(kmer_length, sequence, pos, kmer, new_kmer):
-    # Print out the new sequences and replacements when verbose is active
-    pos-1
+def print_Sequences(sequence, pos, kmer, new_kmer):
+    "Print out the new sequences and replacements when verbose is active"
     if args.verbose:
         print('Correcting sequence')
         [print(' ', end='') for j in range(pos)]
@@ -127,33 +57,7 @@ def printSequences(kmer_length, sequence, pos, kmer, new_kmer):
         print(sequence)
 
 
-def checkErrorState(frequency, threshold, pos, initialError):
-    # Check the error state of the kmer based on threshold
-    # Ensure that if there was an initial error, ignore until good kmer
-    if frequency <= threshold and pos == 0:
-        initialError == True
-        return False, initialError
-    elif frequency <= threshold and initialError == True:
-        return False, initialError
-    elif frequency > threshold and initialError == True:
-        initialError = False
-        return False, initialError
-    elif frequency <= threshold:
-        return True, initialError
-    else:
-        return False, False
-
-
-def makeNewSequence(kmer_length, sequence, pos, kmer, newKmer):
-    if kmer != newKmer:
-        newSeq = str(sequence[:pos])+newKmer + \
-            str(sequence[pos+kmer_length:])
-        sequence = newSeq
-        printSequences(kmer_length, sequence, pos, kmer, newKmer)
-    return sequence
-
-
-def appendOutput(record):
+def append_Output(args, record):
     # Append the corrected sequences and sequence objects to the output file
     outputName = args.output+'.'+args.format
     if args.verbose:
@@ -175,86 +79,156 @@ def appendOutput(record):
                 print(f'Successfully wrote record to {outputName}')
 
 
-def plotHistogram(kmer_frequency):
-    "Plot the kmer frequency using a seaborn histogram"
-    # You can adjust the number of bins as needed
-    sns.histplot(list(kmer_frequency.values()), bins=30)
-    plt.xlabel('Kmer Frequency')
-    plt.ylabel('')
-    plt.title('Histogram of Kmer Frequency Distribution Values')
-    plt.show()
+def check_Error_State(args, frequency, threshold, pos, initial_error):
+    "Check the error state of the kmer based on threshold"
+    "Ensure that if there was an initial error, ignore until good kmer"
+    if frequency <= threshold and pos == 0:
+        initial_error = True
+        return False, initial_error
+    elif frequency <= threshold and initial_error == True:
+        return False, initial_error
+    elif frequency > threshold and initial_error == True:
+        initial_error = False
+        return False, initial_error
+    elif frequency <= threshold:
+        return True, initial_error
+    else:
+        return False, False
 
 
-def checkSequences(kmer_frequency):
-    # Check the sequences for errors using kmer counts
+def get_Kmer_Frequency(kmer, kmer_frequency):
+    # Iterate through the file and hash kmers
+    # If kmer in hash, increment frequency, if not, add key with value 1
+    if kmer in kmer_frequency:
+        kmer_frequency[kmer] += 1
+    else:
+        kmer_frequency[kmer] = 1
+
+    return kmer_frequency
+
+
+def get_Sequences(args, file):
+    # Get the frequency at which each kmer appears within the illumina file
+    kmer_frequency = {}
+    file_format = args.format
+    kmer_length = args.kmer_size
+    try:
+        # Iterate through sequence file
+        with open(file, mode='rt') as seqFile:
+            if args.verbose:
+                print(f'Successfully opened file: {file}')
+            sio = SeqIO.parse(seqFile, file_format)
+            if args.verbose:
+                print(f'Successfully parsed file with format: {file_format}')
+            # Iterate through position in nucleotide sequence
+            for record in sio:
+                # print(record.seq)
+                for pos in range(len(record.seq)-kmer_length+1):
+                    # Create sub sequence of length n using string position
+                    kmer = record.seq[pos:pos+kmer_length]
+                    kmer_frequency = get_Kmer_Frequency(
+                        kmer, kmer_frequency)
+    except FileNotFoundError:
+        print(f'File {file} not found')
+    return kmer_frequency
+
+
+def make_New_Sequence(args, sequence, pos, kmer, newKmer):
+    kmer_length = args.kmer_size
+    if kmer != newKmer:
+        newSeq = str(sequence[:pos])+newKmer + \
+            str(sequence[pos+kmer_length:])
+        sequence = newSeq
+        print_Sequences(sequence, pos, kmer, newKmer)
+    return sequence
+
+
+def change_Nucleotide(option, reverse, nuc):
+    # Change the nucleotide at position before returning sequence
+    kmer_length = args.kmer_size
+    nucleotides = ['A', 'C', 'G', 'T']
+    if reverse != True:
+        option[kmer_length -
+               1] = nucleotides[nuc]
+    else:
+        option[0] = nucleotides[nuc]
+    # Join kmer together
+    option = ''.join(option)
+
+
+def check_Kmer_Counts(args, kmer, kmer_frequency, reverse):
+    # Check the kmer against the count within the hashmap
+    kmer_length = args.kmer_size
+    max_kmer = None
+    # Make list of kmer options
+    options = [list(kmer) for n in range(4)]
+    nucleotides = ['A', 'C', 'G', 'T']
+    for i in range(4):
+        if reverse is True:
+            options[i][0] = nucleotides[i]
+            option = ''.join(options[i])
+            #next_opts = [nucleotides[n]+option[:-1] for n in range(4)]
+        else:
+            options[i][kmer_length-1] = nucleotides[i]
+            option = ''.join(options[i])
+            #next_opts = [option[1:]+nucleotides[n] for n in range(4)]
+
+        option = ''.join(options[i])
+        #next_opt = set(next_opts)
+        #frequency = set(kmer_frequency.keys())
+        # Compare all variants in <options> to determine error free kmer
+        for i in range(4):
+            if option in kmer_frequency: #and bool(next_opt & frequency):
+                if max_kmer == None or kmer_frequency[option] > kmer_frequency[max_kmer]:
+                    # print(f'{kmer_frequency[options[i]]}')
+                    max_kmer = option
+                # Replace kmer with the kmer with highest frequency
+                kmer = max_kmer
+    # Return kmer
+    return kmer
+
+
+def check_Sequences(args, kmer_frequency):
+    "Check the sequences for errors using the kmer counts"
+    file_name = args.file
+    file_format = args.format
     kmer_length = args.kmer_size
     threshold = args.threshold
-    try:
-        with open(file=args.file, mode='rt') as seqFile:
-            for record in SeqIO.parse(seqFile, args.format):
-                sequence = record.seq
-                initialError, error = False, False
-                # Start reads at the beginning of sequence
-                for pos in range(0, len(sequence)-kmer_length+1):
-                    # kmer = str(sequence[pos:pos+kmer_length])
-                    kmer = str(record.seq[pos:pos+kmer_length])
-                    # Check if the kmer is under the error threshold and if there was a previous error
-                    try:
-                        error, initialError = checkErrorState(
-                            kmer_frequency[kmer], threshold, pos, initialError)
-                    except KeyError:
-                        if args.verbose:
-                            print(
-                                "Forward Checking Sequence\nProblem fixing error: Kmer not in hash\n")
-                            printSequences(kmer_length, sequence,
-                                           pos, kmer, str(record.seq[pos:pos+kmer_length]))
-                    if error:
-                        # Perform check on kmer variants and return valid
-                        newKmer = checkKmerCounts(
-                            kmer, kmer_frequency, reverse=False)
-                        sequence = makeNewSequence(
-                            kmer_length, sequence, pos, kmer, newKmer)
-                # Run error checking in reverse do fix initial errors and verify
-                if args.verbose:
-                    print('Reverse Checking Sequence')
+    set_frequency = set(kmer_frequency.keys())
 
-                for pos in range(len(sequence)-kmer_length, -1, -1):
+    with open(file_name, 'rt') as seqFile:
+        for record in SeqIO.parse(seqFile, file_format):
+            sequence = record.seq
+            reverse, error, initial_error = False, False, False     
+            start_error = 0
+            # Starts reads at the beginning of the sequence
+            for pos in range(0, len(sequence)-kmer_length+1):
+                kmer = str(sequence[pos:pos+kmer_length])
+                # Check if the kmer is under the error threshold and if there was a previous error
+                error, initial_error = check_Error_State(args, 
+                    kmer_frequency[kmer], threshold, pos, initial_error)
+                if initial_error:
+                    start_error = pos+kmer_length+1
+                if error:
+                    new_kmer = check_Kmer_Counts(args, kmer, kmer_frequency, reverse=False)
+                    sequence = make_New_Sequence(args, sequence, pos, kmer, new_kmer)
+            
+            if start_error > 0:
+                for rev in range(start_error, -1, -1):
                     kmer = str(sequence[pos:pos+kmer_length])
-                    # kmer = str(record.seq[pos:pos+kmer_length])
-                    # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
-                    try:
-                        if kmer_frequency[kmer] <= threshold:
-                            newKmer = checkKmerCounts(
-                                kmer, kmer_frequency, reverse=True)
-                            sequence = makeNewSequence(
-                                kmer_length, sequence, pos, kmer, newKmer)
-                    except KeyError:
-                        if args.verbose:
-                            print(
-                                "Forward Checking Sequence\nProblem fixing error: Kmer not in hash\n")
-                            printSequences(kmer_length, sequence,
-                                           pos, kmer, str(record.seq[pos:pos+kmer_length]))
-                appendOutput(record)
-    except FileNotFoundError:
-        print(f'File {args.file} not found.')
+                    if kmer_frequency[kmer] <= threshold:
+                        newKmer = check_Kmer_Counts(
+                            args, kmer, kmer_frequency, reverse=True)
+                        sequence = make_New_Sequence(
+                            args,  sequence, pos, kmer, newKmer)
+            append_Output(args, record)
 
 
-def exportFrequency(kmer_frequency, fileName):
-    with open(fileName, 'w') as output:
-        for key, value in kmer_frequency.items():
-            output.write(f'{str(key)}: {value}\n')
+def main(args):
+    "Main Function"
+    kmer_frequency = get_Sequences(args, file=args.file)
+    check_Sequences(args, kmer_frequency)
 
 
-def main():
-    kmer_frequency = getSequences(file=args.file)
-    exportFrequency(kmer_frequency, 'frequency.txt')
-    plotHistogram(kmer_frequency)
-    # [print(f'{key}:{value}') for key, value in kmer_frequency.items()]
-    checkSequences(kmer_frequency)
-    corrected_frequency = getSequences(file=args.output+'.'+args.format)
-    exportFrequency(corrected_frequency, 'corrected.txt')
-    plotHistogram(corrected_frequency)
-
-
-args = parseArgs()
-main()
+args = parse_Args()
+main(args)
