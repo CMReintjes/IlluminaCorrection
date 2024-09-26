@@ -127,12 +127,12 @@ def get_Sequences(args, file):
 
 
 def make_New_Sequence(args, sequence, pos, kmer, newKmer):
-    kmer_length = args.length
+    kmer_length = args.kmer_size
     if kmer != newKmer:
         newSeq = str(sequence[:pos])+newKmer + \
             str(sequence[pos+kmer_length:])
         sequence = newSeq
-        print_Sequences(kmer_length, sequence, pos, kmer, newKmer)
+        print_Sequences(sequence, pos, kmer, newKmer)
     return sequence
 
 
@@ -148,28 +148,35 @@ def change_Nucleotide(option, reverse, nuc):
     # Join kmer together
     option = ''.join(option)
 
-    # Compare all variants in <options> to determine error free kmer
-
 
 def check_Kmer_Counts(args, kmer, kmer_frequency, reverse):
     # Check the kmer against the count within the hashmap
-    kmer_length = args.length
+    kmer_length = args.kmer_size
     max_kmer = None
     # Make list of kmer options
     options = [list(kmer) for n in range(4)]
     nucleotides = ['A', 'C', 'G', 'T']
     for i in range(4):
         if reverse is True:
-            options[0] = nucleotides[i]
+            options[i][0] = nucleotides[i]
+            option = ''.join(options[i])
+            #next_opts = [nucleotides[n]+option[:-1] for n in range(4)]
         else:
-            options[kmer_length-1] = nucleotides[i]
+            options[i][kmer_length-1] = nucleotides[i]
+            option = ''.join(options[i])
+            #next_opts = [option[1:]+nucleotides[n] for n in range(4)]
+
+        option = ''.join(options[i])
+        #next_opt = set(next_opts)
+        #frequency = set(kmer_frequency.keys())
         # Compare all variants in <options> to determine error free kmer
-        if options[i] in kmer_frequency:
-            if max_kmer == None or kmer_frequency[options[i]] > kmer_frequency[max_kmer]:
-                # print(f'{kmer_frequency[options[i]]}')
-                max_kmer = options[i]
-            # Replace kmer with the kmer with highest frequency
-            kmer = max_kmer
+        for i in range(4):
+            if option in kmer_frequency: #and bool(next_opt & frequency):
+                if max_kmer == None or kmer_frequency[option] > kmer_frequency[max_kmer]:
+                    # print(f'{kmer_frequency[options[i]]}')
+                    max_kmer = option
+                # Replace kmer with the kmer with highest frequency
+                kmer = max_kmer
     # Return kmer
     return kmer
 
@@ -180,38 +187,41 @@ def check_Sequences(args, kmer_frequency):
     file_format = args.format
     kmer_length = args.kmer_size
     threshold = args.threshold
+    set_frequency = set(kmer_frequency.keys())
 
     with open(file_name, 'rt') as seqFile:
         for record in SeqIO.parse(seqFile, file_format):
             sequence = record.seq
             reverse, error, initial_error = False, False, False     
+            start_error = 0
             # Starts reads at the beginning of the sequence
             for pos in range(0, len(sequence)-kmer_length+1):
                 kmer = str(sequence[pos:pos+kmer_length])
                 # Check if the kmer is under the error threshold and if there was a previous error
-                error, initial_error = check_Error_State(
+                error, initial_error = check_Error_State(args, 
                     kmer_frequency[kmer], threshold, pos, initial_error)
                 if initial_error:
                     start_error = pos+kmer_length+1
                 if error:
-                    new_kmer = check_Kmer_Counts(args, kmer, kmer_frequency, reverse)
+                    new_kmer = check_Kmer_Counts(args, kmer, kmer_frequency, reverse=False)
                     sequence = make_New_Sequence(args, sequence, pos, kmer, new_kmer)
-                
-            for rev in range(start_error, -1, -1):
-                kmer = str(sequence[pos:pos+kmer_length])
-                if kmer_frequency[kmer] <= threshold:
-                    newKmer = check_Kmer_Counts(
-                        kmer, kmer_frequency, reverse=True)
-                    sequence = make_New_Sequence(
-                        kmer_length, sequence, pos, kmer, newKmer)
+            
+            if start_error > 0:
+                for rev in range(start_error, -1, -1):
+                    kmer = str(sequence[pos:pos+kmer_length])
+                    if kmer_frequency[kmer] <= threshold:
+                        newKmer = check_Kmer_Counts(
+                            args, kmer, kmer_frequency, reverse=True)
+                        sequence = make_New_Sequence(
+                            args,  sequence, pos, kmer, newKmer)
             append_Output(args, record)
 
 
 def main(args):
     "Main Function"
     kmer_frequency = get_Sequences(args, file=args.file)
-    pass
+    check_Sequences(args, kmer_frequency)
 
 
 args = parse_Args()
-main()
+main(args)
