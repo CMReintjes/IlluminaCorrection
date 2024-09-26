@@ -205,7 +205,7 @@ def check_Sequences(args, kmer_frequency):
             for pos in range(0, len(sequence)-kmer_length+1):
                 kmer = str(sequence[pos:pos+kmer_length])
                 # Check if the kmer is under the error threshold and if there was a previous error
-                error, initial_error = check_Error_State(args, 
+                error, initial_error = check_Error_State(args,
                     kmer_frequency[kmer], threshold, pos, initial_error)
                 if initial_error:
                     start_error = pos+kmer_length+1

@@ -23,10 +23,9 @@ The objective of this assignment is to develop a basic Illumina read error corre
 - Generate new _k-mers_ using the modified base and check their counts in the _k-mer_ frequency hash map.
 - Select the base that results in _k-mers_ with the highest counts.
 
-### 3.1. **Kmer Frequency Re-Hash**
+### 3.1. **All-Kmer Nucleotide Check**
 
-- The kmer frequencies may have to be rehashed for that particular sequence due to changin the nucleotide.
-- This is to prevent `KeyErrors`
+- When checking the kmer, check all of the following to ensure that the change all kmers that contain that error nucleotide exist within the hash.
 
 ## 4. **Check the Correction Process**
 
