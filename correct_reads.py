@@ -156,7 +156,7 @@ def change_Nucleotide(option, reverse, nuc):
     option = ''.join(option)
 
 
-def check_Kmer_Counts(args, kmer, kmer_frequency, reverse):
+def check_Kmer_Counts(args, kmer, kmer_frequency, sequence, reverse):
     # Check the kmer against the count within the hashmap
     kmer_length = args.kmer_size
     max_kmer = None
@@ -210,7 +210,7 @@ def check_Sequences(args, kmer_frequency):
                 if initial_error:
                     start_error = pos+kmer_length+1
                 if error:
-                    new_kmer = check_Kmer_Counts(args, kmer, kmer_frequency, reverse=False)
+                    new_kmer = check_Kmer_Counts(args, kmer, kmer_frequency, sequence, reverse=False)
                     sequence = make_New_Sequence(args, sequence, pos, kmer, new_kmer)
             
             if start_error > 0:
