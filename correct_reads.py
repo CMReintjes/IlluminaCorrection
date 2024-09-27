@@ -39,7 +39,7 @@ def parse_Args():
 
 def plot_Histogram(frequency):
     "Plot the kmer frequency using a seaborn histogram"
-    sns.histplot(list(frequency.values()), bins=30)
+    sns.histplot(list(frequency.values()), bins=50)
     plt.xlabel('Kmer Frequency')
     plt.ylabel('Number of Kmers')
     plt.title('Histogram of Kmer Frequency Distribution Values')
@@ -227,6 +227,7 @@ def check_Sequences(args, kmer_frequency):
 def main(args):
     "Main Function"
     kmer_frequency = get_Sequences(args, file=args.file)
+    plot_Histogram(kmer_frequency)
     check_Sequences(args, kmer_frequency)
 
 

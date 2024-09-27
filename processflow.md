@@ -245,7 +245,7 @@ print("Corrected Read:", corrected_read)
 
 In this example, the `correct_read_using_neighbors` function looks for erroneous k-mers in the read and attempts to correct them based on the closest trusted k-mer. It applies the Hamming distance method to minimize differences and ensure that the corrected read aligns with trusted k-mers.
 
-### **Summary**
+### **Correction Summary**
 
 - **Hamming Distance** is used to find the minimum number of nucleotide changes required to convert an erroneous k-mer into a trusted one.
 - **Neighboring K-mers** help detect and correct errors by utilizing overlaps between consecutive k-mers. The correction process ensures the consistency of k-mers within the read and reduces sequencing errors effectively.
