@@ -209,39 +209,74 @@ In a DNA read, k-mers overlap with one another, meaning consecutive k-mers share
 This simplified example shows how you might use Hamming distance and neighboring k-mers for correction:
 
 ```python
-def hamming_distance(s1, s2):
-    """Calculate the Hamming distance between two strings."""
-    return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+import numpy as np
 
-def correct_kmer(erroneous_kmer, trusted_kmers):
-    """Correct an erroneous k-mer by finding the closest trusted k-mer."""
-    min_distance = float('inf')
-    closest_kmer = erroneous_kmer
-    for trusted_kmer in trusted_kmers:
-        distance = hamming_distance(erroneous_kmer, trusted_kmer)
-        if distance < min_distance:
-            min_distance = distance
-            closest_kmer = trusted_kmer
-    return closest_kmer
+def extract_kmers(sequence, k):
+    """Extract all k-mers from the given sequence."""
+    kmers = [sequence[i:i+k] for i in range(len(sequence) - k + 1)]
+    return kmers
 
-def correct_read_using_neighbors(read, k, trusted_kmers):
-    """Attempt to correct a read by using overlapping trusted k-mers."""
-    corrected_read = list(read)
-    for i in range(len(read) - k + 1):
-        kmer = read[i:i+k]
-        if kmer not in trusted_kmers:
-            corrected_kmer = correct_kmer(kmer, trusted_kmers)
-            corrected_read[i:i+k] = corrected_kmer
-    return ''.join(corrected_read)
+def hamming_distance(kmer1, kmer2):
+    """Calculate the Hamming distance between two k-mers."""
+    return np.sum(np.array(list(kmer1)) != np.array(list(kmer2)))
 
-# Example trusted k-mers and erroneous read
+def find_erroneous_kmers(kmers, trusted_kmers):
+    """Identify the k-mers in the sequence that are not in the trusted set."""
+    erroneous_kmers = [kmer for kmer in kmers if kmer not in trusted_kmers]
+    return erroneous_kmers
+
+def closest_trusted_kmers(erroneous_kmers, trusted_kmers):
+    """Find the closest trusted k-mer for each erroneous k-mer."""
+    # Convert trusted k-mers to a NumPy array for comparison
+    trusted_kmers_array = np.array([list(kmer) for kmer in trusted_kmers])
+
+    # Create a dictionary to store the closest trusted k-mer for each erroneous k-mer
+    closest_kmers = {}
+
+    # Compute the Hamming distance only for erroneous k-mers
+    for kmer in erroneous_kmers:
+        kmer_array = np.array(list(kmer))
+        # Calculate Hamming distances between the erroneous k-mer and all trusted k-mers
+        distances = np.sum(kmer_array != trusted_kmers_array, axis=1)
+        
+        # Find the index of the trusted k-mer with the minimum distance
+        min_index = np.argmin(distances)
+        
+        # Use the index to retrieve the corresponding trusted k-mer
+        closest_kmer = list(trusted_kmers)[min_index]
+        
+        # Store the closest trusted k-mer in the dictionary
+        closest_kmers[kmer] = closest_kmer
+    
+    return closest_kmers
+
+# Example usage
+sequence = "ACGCTCGTCC"
 trusted_kmers = {"ACGCT", "CGTCA", "GTCAA"}
-erroneous_read = "ACGCTCGTCC"
+k = 5
 
-# Correct the read
-corrected_read = correct_read_using_neighbors(erroneous_read, 5, trusted_kmers)
-print("Corrected Read:", corrected_read)
+# Step 1: Extract k-mers from the sequence
+kmers = extract_kmers(sequence, k)
+
+# Step 2: Identify erroneous k-mers
+erroneous_kmers = find_erroneous_kmers(kmers, trusted_kmers)
+print("Erroneous k-mers:", erroneous_kmers)
+
+# Step 3: Find closest trusted k-mers for erroneous k-mers only
+closest_kmers = closest_trusted_kmers(erroneous_kmers, trusted_kmers)
+print("Closest trusted k-mers for erroneous k-mers:", closest_kmers)
+
 ```
+
+##### Explanation
+
+Compute distances: `distances = np.sum(kmer_array != trusted_kmers_array, axis=1)` computes the Hamming distance between the erroneous k-mer and all trusted k-mers.
+
+Find minimum distance: `min_index = np.argmin(distances)` finds the index of the smallest value in the distances array, which corresponds to the trusted k-mer with the smallest Hamming distance.
+
+Retrieve the closest k-mer: `closest_kmer = list[trusted_kmers](min_index)` converts the set trusted_kmers into a list and retrieves the closest k-mer using the index min_index.
+
+Store the result: `hamming_distances[kmer] = closest_kmer` stores the closest trusted k-mer in the dictionary with the erroneous k-mer as the key.
 
 In this example, the `correct_read_using_neighbors` function looks for erroneous k-mers in the read and attempts to correct them based on the closest trusted k-mer. It applies the Hamming distance method to minimize differences and ensure that the corrected read aligns with trusted k-mers.
 
