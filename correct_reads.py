@@ -7,6 +7,8 @@ Plot the distribution of the kmers on a histogram before and after correction
 
 # General Imports
 import argparse
+from cmath import e
+from os import error
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -41,8 +43,8 @@ def parse_Args():
 def plot_Histogram(frequency):
     "Plot the kmer frequency using a seaborn histogram"
     if args.verbose:
-       print('Creating Histogram of kmer frequency')
-    
+        print('Creating Histogram of kmer frequency')
+
     sns.histplot(list(frequency.values()), bins=50)
     plt.xlabel('Kmer Frequency')
     plt.ylabel('Number of Kmers')
@@ -98,14 +100,15 @@ def get_Trusted(args, all_frequencies):
     "Return a dictionary containing only the trusted sequences based on a cutoff"
     limit = args.threshold + 1
     if args.verbose:
-       print(f'Creating dictionary of only trusted kmers using threshold of: {limit}')
+        print(
+            f'Creating dictionary of only trusted kmers using threshold of: {limit}')
     trusted = {}
     for kmer, freq in all_frequencies.items():
         if freq > limit:
             trusted[kmer] = freq
     if args.verbose:
-       print('Successfully created dictionary of trusted kmers')
-    
+        print('Successfully created dictionary of trusted kmers')
+
     return trusted
 
 
@@ -131,35 +134,74 @@ def get_Sequences(args, file):
                 # print(record.seq)
                 for pos in range(len(record.seq)-kmer_length+1):
                     # Create sub sequence of length n using string position
-                    kmer = record.seq[pos:pos+kmer_length]
+                    kmer = str(record.seq[pos:pos+kmer_length])
                     kmer_frequency = get_Kmer_Frequency(
                         kmer, kmer_frequency)
     except FileNotFoundError:
         print(f'File {file} not found')
     if args.verbose:
-       print('Successfully created dictionary of kmer frequencies')
-    
+        print('Successfully created dictionary of kmer frequencies')
+
     return kmer_frequency
 
 
-def get_Hamming_Distance(kmer, trusted):
-    "Calculate and return the Hamming Distance between the erroneous and trusted kmers"
-    pass
+def correct_Kmers(args, pos, sequence, trusted_kmers):
+    kmer_length = args.kmer_size
+    nucleotides = ['A', 'C', 'G', 'T']
+    trusted = set(trusted_kmers.keys())
+    "Correct and return the erroneous kmers within the sequence"
+    checking_kmers = []
+    for i in range(kmer_length):
+        check_list = list(sequence[pos:pos+kmer_length])
+        options = [check_list for j in range(4)]
+        for k in range(4):
+            options[k][(kmer_length-i)-1] = nucleotides[k]
+            #print(f'Option: {''.join(options[k])}')
+            #print(f'Sequence: {options[k]}, Nucleotide: {nucleotides[k]}')
+
+            if ''.join(options[k]) in trusted_kmers:
+                print("kmers exist within the dictionary")
+
+        
+
 
 
 
 def check_Sequence(args, kmer_trusted, sequence):
     "Check the number of kmers within the sequence that are below the threshold"
     errors = []
+    reverse = []
+    initial_error = False
+    initial_pos = 0
+    needed_reverse = False
     kmer_length = args.kmer_size
-    for pos in range(0, len(sequence)-kmer_length+1,int((kmer_length/3))):
+    for pos in range(len(sequence)-kmer_length+1):
         kmer = sequence[pos:pos+kmer_length]
-        if kmer not in kmer_trusted.keys():
+        if kmer not in kmer_trusted.keys() and pos == 0:
+            initial_error = True
+            needed_reverse = True
+        elif kmer not in kmer_trusted.keys() and initial_error is True:
+            continue
+        elif kmer in kmer_trusted.keys() and initial_error is True:
+            initial_error = False
+            initial_pos = pos
+            continue
+        elif kmer not in kmer_trusted.keys() and initial_error is False:
             errors.append(pos)
-
-    if len(errors) == 0:
-        return None
-    return errors
+        
+    if needed_reverse:
+        for pos in range(initial_pos, -1, -1):
+            if kmer not in kmer_trusted.keys():
+                reverse.append(pos)
+    
+    if len(errors) == 0 and len(reverse) == 0:
+        return None, None
+    elif len(errors) == 0:
+        return None, reverse
+    elif len(reverse) == 0:
+        return errors, None
+    else:
+        return errors, reverse
 
 
 def correct_Sequences(args, kmer_trusted):
@@ -168,10 +210,9 @@ def correct_Sequences(args, kmer_trusted):
     file_format = args.format
     kmer_length = args.kmer_size
     corrected_kmers = {}
-    trusted_array = np.array([list(trusted) for trusted in kmer_trusted.keys()])
     # print(trusted_array)
-    '''with open('errors.csv', 'w') as output_file:
-        pass'''
+    with open('errors.csv', 'w') as output_file:
+        pass
     with open('corrected.fastq', mode='w') as correctFile:
         pass
 
@@ -182,34 +223,25 @@ def correct_Sequences(args, kmer_trusted):
         for record in sio:
             count += 1
             sequence = str(record.seq)
-            errors = check_Sequence(args, kmer_trusted, sequence)
-            if errors is not None:
-                '''with open('errors.csv', 'a') as output_file:
-                    errors.sort()
+            errors, reverse = check_Sequence(args, kmer_trusted, sequence)
+            if errors is not None or reverse is not None:
+                with open('errors.csv', 'a') as output_file:
                     output_file.write(f'\n{sequence}')
-                    [output_file.write(f',{errors[i]}') for i in range(len(errors))]'''
-                error_kmers = [sequence[pos:pos+kmer_length] for pos in errors]
-                print(error_kmers)
-
-                for error_kmer in error_kmers:
-                    errors = np.array(error_kmer)
-                    distances = np.sum(errors != trusted_array, axis=1)
-                    index = np.argmin(distances)
-                    closest_kmer = ''.join(list(trusted_array)[index])
-                    if error_kmer not in corrected_kmers:
-                        corrected_kmers[error_kmer] = closest_kmer
+                    if errors is not None:
+                        errors.sort()
+                        [output_file.write(f',{errors[i]}') for i in range(len(errors))]
+                        last = 0
+                        # error_kmers = [sequence[pos:pos+kmer_length] for pos in errors]
+                        for pos in errors:
+                            correct_Kmers(args, pos, sequence, kmer_trusted)
+                            break
+                            
+                    if reverse is not None:
+                        reverse.sort()
+                        [output_file.write(f',{reverse[i]}') for i in range(len(reverse))]
+                break
                 
-                corrected_sequence = sequence
-                for pos in range(len(corrected_sequence)):
-                    kmer = corrected_sequence[pos:pos+kmer_length]
-                    if kmer in kmer_trusted and kmer in corrected_kmers:
-                        corrected_sequence = corrected_sequence[:pos] + corrected_kmers[kmer] + corrected_sequence[pos+kmer_length:]
-                print(f'{count}: {corrected_sequence}')
-                with open('corrected.fastq', mode='a') as correctFile:
-                    record.seq = Seq(corrected_sequence)
-                    SeqIO.write(record, correctFile, file_format)
-                        #print_Sequences(sequence, pos, kmer, corrected_kmers[kmer])
-                    
+
 
 
 def main(args):
@@ -217,9 +249,9 @@ def main(args):
     corrected = 'corrected.'+args.format
     kmer_frequency = get_Sequences(args, file=args.file)
     kmer_trusted = get_Trusted(args, kmer_frequency)
-    plot_Histogram(kmer_frequency)
+    #plot_Histogram(kmer_frequency)
     correct_Sequences(args, kmer_trusted)
-    plot_Histogram(get_Sequences(args, corrected))
+    # plot_Histogram(get_Sequences(args, corrected))
 
 
 args = parse_Args()
