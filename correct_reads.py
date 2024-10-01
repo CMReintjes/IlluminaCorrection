@@ -194,7 +194,7 @@ def check_sequences(args, kmer_frequency):
                     if error:
                         new_kmer = check_kmer_counts(args, kmer, kmer_frequency, reverse=False)
                         sequence = make_new_sequence(args, sequence, pos, kmer, new_kmer)
-                
+
                 except KeyError:
                     print(f'Error correcting kmer: {kmer} does not exist within the sequence')
 
