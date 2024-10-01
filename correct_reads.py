@@ -199,6 +199,9 @@ def check_sequences(args, kmer_frequency):
                     print(f'Error correcting kmer: {kmer} does not exist within the sequence')
 
             if start_error > 0:
+                if args.verbose:
+                    print(f'Reverse reading sequence at {start_error} due to initial error.')
+
                 for rev in range(start_error, -1, -1):
                     kmer = str(sequence[rev:rev+kmer_length])
                     try:
