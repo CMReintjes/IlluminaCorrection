@@ -3,6 +3,7 @@
 """
 Identify kmers from Illumina Sequences data to correct errors within the dataset.
 Plot the distribution of the kmers on a histogram before and after correction
+Current command: py correct_reads.py reads_to_correct.fq fastq 21 2 -v
 """
 
 # General Imports
@@ -130,7 +131,7 @@ def get_sequences(args, file):
 
 def correct_sequence(args, kmer_slots):
     "Gets corrected sequence from corrected kmer slots"
-    sequence = '' 
+    sequence = ''
     for kmer in kmer_slots:
         sequence += kmer[0] # Concatenante strings with the first base of every kmer
     sequence += kmer[1:] # Add the last bases from final kmer at end
@@ -196,11 +197,11 @@ def check_kmer_counts(args, pos, kmer, kmer_slots, kmer_frequency, reverse):
                 if kmer_test[j] not in kmer_frequency:
                     future = False
                     break
-                
+
                 # If reaching end, future kmers exist
                 if j == future_stop or j == len(kmer_test):
                     future = True
-            
+
             # Update max with current options that exist
             if future is True and kmer_frequency[option] >= kmer_frequency[kmer]:
                 # print(f'{kmer_frequency[options[i]]}')
@@ -226,7 +227,7 @@ def check_sequences(args, kmer_frequency):
             start_error = 0 # Tracker for initial error position
             if args.verbose: # verbose output flag
                 print(f'{record.id}:\n{sequence}')
-            
+
             # Starts reads at the beginning of the sequence and put in a list
             kmer_slots = [None for i in range(len(sequence)-kmer_length+1)]
             for pos in range(0, len(kmer_slots)):
@@ -234,7 +235,7 @@ def check_sequences(args, kmer_frequency):
 
             for pos in range(len(kmer_slots)):
                 kmer = kmer_slots[pos]
-                # print(f'Checking kmer: {kmer} at position {pos}')  
+                # print(f'Checking kmer: {kmer} at position {pos}')
                 # Check if the kmer is under the error threshold and if there was a previous error
                 error, initial_error = check_error_state(
                 kmer_frequency[kmer], threshold, pos, initial_error)
@@ -262,7 +263,7 @@ def main():
     "Main Function"
     args = parse_args()
     correct_file_name = 'corrected_reads.'+args.format
-    with open(correct_file_name, 'w') as corrected_file:
+    with open(correct_file_name, 'w'):
         pass
 
     kmer_frequency = get_sequences(args, file=args.file)
