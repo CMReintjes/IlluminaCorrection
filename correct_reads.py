@@ -44,7 +44,7 @@ def plot_histogram(frequency, bins):
 
 
 def print_sequences(args, sequence, pos, kmer, new_kmer):
-    "Print out the new sequences and replacements when verbose is active"
+    "Print out the new sequences and replacements when verbose is active (OLD CODE, CAN REMOVE)"
     if args.verbose:
         print('Correcting sequence')
         spacing = ''.join([' ' for j in range(pos)])
@@ -59,7 +59,7 @@ def append_output(args, record):
     if args.verbose:
         # print(f'Attempting to open output file: {outputName}')
         pass
-    try:
+    try: # Error handling for file not found
         with open(output_name,'a') as seq_out:
             SeqIO.write(record, seq_out, args.format)
             if args.verbose:
@@ -78,15 +78,15 @@ def append_output(args, record):
 
 def check_error_state(frequency, threshold, pos, initial_error):
     "Check the error state of the kmer based on threshold. Ensure that if there was an initial error, ignore until good kmer"
-    if frequency <= threshold and not pos:
+    if frequency <= threshold and not pos: # Check if first kmer has error
         initial_error = True
         return False, initial_error
-    elif frequency <= threshold and initial_error is True:
+    elif frequency <= threshold and initial_error is True: # Ignore following kmers after initial error
         return False, initial_error
-    elif frequency > threshold and initial_error is True:
+    elif frequency > threshold and initial_error is True: # Check for good kmer following initial error
         initial_error = False
         return False, initial_error
-    elif frequency <= threshold:
+    elif frequency <= threshold: # Once good is found, start correcting erroneous kmers
         return True, initial_error
     else:
         return False, False
@@ -107,7 +107,7 @@ def get_sequences(args, file):
     kmer_frequency = {}
     file_format = args.format
     kmer_length = args.kmer_size
-    try:
+    try: # Error handling for missing file
         # Iterate through sequence file
         with open(file, 'rt') as seq_file:
             if args.verbose:
@@ -128,20 +128,21 @@ def get_sequences(args, file):
     return kmer_frequency
 
 
-def correct_sequence(kmer_slots):
+def correct_sequence(args, kmer_slots):
     "Gets corrected sequence from corrected kmer slots"
-    sequence = ''
+    sequence = '' 
     for kmer in kmer_slots:
-        sequence += kmer[0]
+        sequence += kmer[0] # Concatenante strings with the first base of every kmer
+    sequence += kmer[1:] # Add the last bases from final kmer at end
 
-    sequence += kmer[1:]
-    print(f'Corrected Sequence:\n{sequence}')
+    if args.verbose:
+        print(print(f'Corrected Sequence:\n{sequence}'))
 
     return sequence
 
 
 def make_new_sequence(args, sequence, pos, kmer, new_kmer):
-    "Make new sequence using the adjusted kmer and sequence"
+    "Make new sequence using the adjusted kmer and sequence (OLD CODE, NOT NEEDED)"
     kmer_length = args.kmer_size
     new_seq = str(sequence[:pos])+new_kmer + \
         str(sequence[pos+kmer_length:])
@@ -157,16 +158,17 @@ def check_kmer_counts(args, pos, kmer, kmer_slots, kmer_frequency, reverse):
     # Make list of kmer options
     options = [list(kmer) for n in range(4)]
     nucleotides = ['A', 'C', 'G', 'T']
-    max_test = list(kmer_slots)
+    max_test = list(kmer_slots) # re-declare list since immulatable
     # Change nucleotide at position within options
     for i in range(4):
         kmer_test = list(kmer_slots)
+        # Start the for loop at current kmer position
         future_start = pos
         if reverse is True:
-            options[i][0] = nucleotides[i]
-            point = 0
-            future_stop = pos-kmer_length-1
-            future_step = -1
+            options[i][0] = nucleotides[i] # Change nucleotide at first position
+            point = 0 # Point = position of nucleotide change within kmer
+            future_stop = pos-kmer_length-1 # Future check stop point
+            future_step = -1 # Future point step, -1 since backwards
 
         else:
             options[i][kmer_length-1] = nucleotides[i]
@@ -179,30 +181,33 @@ def check_kmer_counts(args, pos, kmer, kmer_slots, kmer_frequency, reverse):
             future = False
             # If kmer is in hash, iterate through future kmers and change nucleotide to match
             for j in range(future_start, future_stop, future_step):
-                if j >= len(kmer_test) or j >= kmer_length:
+                if j >= len(kmer_test) or j >= kmer_length: # prevent index errors by breaking out of loop at kmer end points
                     break
-                test = list(kmer_slots[j])
-                test[point] = nucleotides[i]
-                kmer_test[j] = ''.join(test)
+                test = list(kmer_slots[j]) # convert string to list of bases
+                test[point] = nucleotides[i] # change base at point
+                kmer_test[j] = ''.join(test) # Join list back to string for hash check
+                # Update point for next kmer
                 if reverse:
                     point +=1
                 else:
                     point -=1
 
+                # Check if future kmer in hash
                 if kmer_test[j] not in kmer_frequency:
                     future = False
                     break
-
+                
+                # If reaching end, future kmers exist
                 if j == future_stop or j == len(kmer_test):
                     future = True
             
+            # Update max with current options that exist
             if future is True and kmer_frequency[option] >= kmer_frequency[kmer]:
                 # print(f'{kmer_frequency[options[i]]}')
                 max_kmer = option
-                max_test = kmer_test
+                max_test = list(kmer_test)
                 future = False
                 #print(f'Updated kmer_slots with: {kmer_test}')
-                # Replace kmer with the kmer with highest frequency
     # Return kmer and kmer list
     return max_kmer, max_test
 
@@ -216,10 +221,10 @@ def check_sequences(args, kmer_frequency):
 
     with open(file_name, 'rt') as seq_file:
         for record in SeqIO.parse(seq_file, file_format):
-            sequence = str(record.seq)
-            error, initial_error = False, False
-            start_error = 0
-            if args.verbose:
+            sequence = str(record.seq) # Create a sequence from seq object
+            error, initial_error = False, False # Bools for initial error handling
+            start_error = 0 # Tracker for initial error position
+            if args.verbose: # verbose output flag
                 print(f'{record.id}:\n{sequence}')
             
             # Starts reads at the beginning of the sequence and put in a list
@@ -234,26 +239,22 @@ def check_sequences(args, kmer_frequency):
                 error, initial_error = check_error_state(
                 kmer_frequency[kmer], threshold, pos, initial_error)
                 if initial_error:
-                    start_error = pos+kmer_length+1
+                    start_error = pos+kmer_length+1 # Update initial error position tracker
                 if error:
                     new_kmer, kmer_slots = check_kmer_counts(args, pos, kmer, kmer_slots, kmer_frequency, reverse=False)
-                    # print(f'New kmer: {new_kmer} at position: {pos}')
-                    # sequence = make_new_sequence(args, sequence, pos, kmer, new_kmer)
-                    record.seq = Seq(correct_sequence(kmer_slots))
+                    record.seq = Seq(correct_sequence(args, kmer_slots)) # Update sequence in record
 
+            # If there was an initial error recheck start of sequence
             if start_error > 0:
                 if args.verbose:
                     print(f'Reverse reading sequence at {start_error} due to initial error.')
-
+                # Start at known good kmer position and work backwards
                 for rev in range(start_error, -1, -1):
                     kmer = kmer_slots[rev]
                     if kmer_frequency[kmer] <= threshold:
                         new_kmer, kmer_slots = check_kmer_counts(
                             args, pos, kmer, kmer_slots, kmer_frequency, reverse=True)
-                        # print(f'New kmer: {new_kmer} at rev: {rev}')
-                        # sequence = make_new_sequence(args,  sequence, rev, kmer, new_kmer)
-                        record.seq = Seq(correct_sequence(kmer_slots))
-            # record.seq = Seq(correct_sequence(kmer_slots))
+                        record.seq = Seq(correct_sequence(args, kmer_slots))
             append_output(args, record)
 
 
