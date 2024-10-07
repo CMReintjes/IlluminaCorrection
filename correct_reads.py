@@ -90,7 +90,7 @@ def make_window_correction(args, window, kmer_frequency, threshold, forward):
         position = 0
         original = window[position]
         
-    corrected_window = list(window)
+    corrected_window = list(window) # Make copy of original
     for nuc in nucleotides:
         if nuc != original:
             corrected_window[position] = nuc
@@ -138,15 +138,15 @@ def check_sequences(args, kmer_frequency):
                 if check_kmer_error(kmer, kmer_frequency, threshold):
                     if args.verbose:
                         print(f'K-mer {kmer} is below the error threshold.')
-                    window = seq_list[pos:pos+k] # Make window that includes relevant kmers
+                    window = seq_list[pos:pos+k] # Make window of kmer
                     new_window = make_window_correction(args, 
                         window, kmer_frequency, threshold, forward=True)
-                    seq_list[pos:pos+k] = list(new_window)
+                    seq_list[pos:pos+k] = list(new_window) # Replace old section of sequence with corrected section
                     if args.verbose:
                         print(f'Corrected nucleotides: {new_window}')
-                else:
+                else: # Checks for first good kmer after initial error
                     if error_pos == -1:
-                        error_pos = pos
+                        error_pos = pos # remember position of known good kmer
 
             # Backward pass if the first k-mer has an error; similar to forward direction
             if error_pos > 0:
@@ -163,9 +163,9 @@ def check_sequences(args, kmer_frequency):
                             print(f'Backward pass corrected nucleotides: {new_window}')
 
             # Correct the sequence and then add to copy of record
-            corrected_sequence = ''.join(seq_list)
+            new_sequence = ''.join(seq_list)
             corrected_record = record
-            corrected_record.seq = Seq(corrected_sequence)
+            corrected_record.seq = Seq(new_sequence)
             # Write corrected sequences to output file
             output_name = 'corrected_output.' + file_format
             with open(output_name, 'a') as output_file:
@@ -176,7 +176,7 @@ def main():
     "Main function"
 
     # Variable for performing testing on system arguments
-    test_args = ['reads_to_correct.fq', 'fastq', '21', '2', '-v']
+    test_args = None
     args = parse_arguments(test_args)
     if args.verbose:
         print(args)
