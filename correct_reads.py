@@ -42,8 +42,11 @@ def check_kmer_error(kmer, kmer_frequency, threshold):
     try: # Check if kmer is below the error threshold
         if kmer_frequency[kmer] < threshold:
             return True
+        else:
+            return False
     except KeyError: # Error handling just in case
-        return  
+        print(f"Bad Kmer: {kmer}")
+        return True
 
 
 def make_window_correction(args, window, kmer_frequency, threshold, forward):
@@ -97,45 +100,38 @@ def check_sequences(args, kmer_frequency):
             sequence = str(record.seq)
             seq_list = list(sequence) # Convert to list
             error_pos = -1 # For keeping track of error position if there is initial error
-
             # Forward pass through the sequence
             for pos in range(len(seq_list) - k + 1):
                 kmer = ''.join(seq_list[pos:pos+k]) # Make kmer
                 # Check for errors, and if there are, run correction
                 if check_kmer_error(kmer, kmer_frequency, threshold):
                     if args.verbose:
-                        print(f'K-mer {kmer} is below the error threshold.')
-                    print(f'Kmer: {kmer}:{pos}')
+                        print(f'K-mer {kmer} is below the error threshold: {kmer_frequency[kmer]}.')
                     window = list(seq_list[pos:pos+(2*k)-1]) # Make window of kmer
                     # new_window = make_window_correction(args, window, kmer_frequency, threshold, forward=True)
-                    new_window = fix_window(window, k, threshold, kmer_frequency)
+                    new_window = fix_window(list(window), k, threshold, kmer_frequency)
                     seq_list[pos:pos+k] = list(new_window) # Replace old section of sequence with corrected section
                     if args.verbose:
-                        print(f'Corrected nucleotides: {new_window}')
+                        print(f'Corrected kmer: {''.join(new_window)}')
                 else: # Checks for first good kmer after initial error
                     if error_pos == -1:
                         error_pos = pos # remember position of known good kmer
 
             # Backward pass if the first k-mer has an error; similar to forward direction
             if error_pos > 0:
-                error_pos -=1
                 for pos in range(error_pos - 1, -1, -1):
                     kmer = ''.join(seq_list[pos:pos+k])
                     if check_kmer_error(kmer, kmer_frequency, threshold):
                         if args.verbose:
                             print(f'Backward pass: K-mer {kmer} is below the error threshold.')
-                        print(f'Kmer: {kmer}:{pos}')
                         adj_pos = max(0, pos-k)
-                        end_pos = pos+(k)-1
-                        print(pos, adj_pos, end_pos)
+                        end_pos = pos+(k)
                         window = list(seq_list[adj_pos:end_pos])
-                        print(f'Test: {''.join(window)}')
                         # new_window = make_window_correction(args, window, kmer_frequency, threshold, forward=False)
-                        new_window = fix_window(window, k, threshold, kmer_frequency, reverse=True)
-                        print(''.join(new_window))
+                        new_window = fix_window(list(window), k, threshold, kmer_frequency, reverse=True)
                         seq_list[pos:pos+k] = list(new_window)
                         if args.verbose:
-                            print(f'Backward pass corrected nucleotides: {new_window}')
+                            print(f'Backward pass corrected kmer: {''.join(new_window)}')
 
             # Correct the sequence and then add to copy of record
             new_sequence = ''.join(seq_list)
