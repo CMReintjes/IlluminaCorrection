@@ -6,7 +6,17 @@ import argparse
 
 
 def parse_arguments(test_args):
-    "Parse command line arguments as input"
+    '''
+    Parse command line arguments as input.
+
+    This function sets up and parses command-line arguments for the script, allowing users to specify the input Illumina file, file format, k-mer length, error threshold, and verbosity.
+
+    Args:
+        test_args (list): List of arguments for testing purposes.
+
+    Returns:
+        Namespace: Parsed arguments including file, format, kmer_length, threshold, and verbose.
+    '''
     parser = argparse.ArgumentParser(description='Error correction for Illumina sequencing data using k-mer counts')
 
     # Positional arguments
@@ -26,7 +36,18 @@ def parse_arguments(test_args):
 
 
 def read_illumina_file(args, file_name):
-    "Parses the Illumina file and gets kmer frequency from sequences."
+    '''
+    Parse the Illumina file and get k-mer frequency from sequences.
+
+    This function reads an Illumina sequencing file, processes each sequence, and computes the frequency of all k-mers within the file. The k-mer frequencies are collected into a dictionary.
+
+    Args:
+        args (Namespace): Parsed command line arguments.
+        file_name (str): Path to the Illumina file.
+
+    Returns:
+        dict: A dictionary of k-mer frequencies.
+    '''
     file_format = args.format
     verbose = args.verbose
     k = args.kmer_length
@@ -42,13 +63,25 @@ def read_illumina_file(args, file_name):
         for record in SeqIO.parse(input_file, file_format):
             if verbose: # Verbose output
                 print(f'Processing record: {record.id}')
-            # Get kmer frequency using dictionary
+            # Get k-mer frequency using dictionary
             kmer_frequency = get_kmer_frequency(str(record.seq), k, kmer_frequency)
     return kmer_frequency
 
 
 def get_kmer_frequency(sequence, k, kmer_frequency):
-    "Gets k-mers from the sequence and updates the frequency dictionary."
+    '''
+    Get k-mers from the sequence and update the frequency dictionary.
+
+    This function extracts all possible k-mers from a given sequence and updates the provided dictionary with their frequencies. If the k-mer is new, it is added to the dictionary; otherwise, its frequency is incremented.
+
+    Args:
+        sequence (str): DNA sequence from which to extract k-mers.
+        k (int): Length of the k-mer.
+        kmer_frequency (dict): Dictionary containing k-mer frequencies.
+
+    Returns:
+        dict: Updated k-mer frequency dictionary.
+    '''
     for pos in range(len(sequence)-k+1):
         # Create kmers of length k using string positions
         kmer = sequence[pos:pos+k]
@@ -61,27 +94,63 @@ def get_kmer_frequency(sequence, k, kmer_frequency):
 
 
 def plot_kmer_frequencies(kmer_frequency, title):
-    "Plots a histogram of k-mer frequencies."
+    '''
+    Plot a histogram of k-mer frequencies.
+
+    This function generates a histogram that visualizes the distribution of k-mer frequencies, helping to identify common and rare k-mers in the dataset.
+
+    Args:
+        kmer_frequency (dict): Dictionary containing k-mer frequencies.
+        title (str): Title for the plot.
+    '''
     plt.figure(figsize=(10, 6))
     plt.hist(kmer_frequency.values(), bins=50)
     plt.xlabel('K-mer Frequency')
-    plt.ylabel('Count')
+    plt.ylabel('K-mer Count')
     plt.title(title)
     plt.show()
 
 
 def check_kmer_error(kmer, kmer_frequency, threshold):
-    "Checks if a k-mer is below the error threshold. Returns True if it has an error."
+    '''
+    Check if a k-mer is below the error threshold.
+
+    This function checks whether the frequency of a given k-mer is below the specified error threshold, indicating that the k-mer might be erroneous.
+
+    Args:
+        kmer (str): The k-mer to be checked.
+        kmer_frequency (dict): Dictionary containing k-mer frequencies.
+        threshold (int): Error threshold for the k-mer frequency.
+
+    Returns:
+        bool: True if the k-mer has an error (i.e., frequency is below threshold), False otherwise.
+    '''
     try: # Check if kmer is below the error threshold
         if kmer_frequency[kmer] < threshold:
             return True
     except KeyError: # Error handling just in case
-        print(f"Kmer: {kmer} not in hash. Expected poor previous base change")
+        print(f'Kmer: {kmer} not in hash. Expected poor previous base change')
         return True  
 
 
 def make_window_correction(args, seq_list, start_pos, k, kmer_frequency, threshold, forward):
-    "Makes corrections to an erroneous base by trying all possible base changes."
+    '''
+    Make corrections to an erroneous base by trying all possible base changes.
+
+    This function attempts to correct an erroneous base by substituting it with each possible nucleotide (A, T, C, G). It checks if the corrected k-mer is present in the frequency dictionary and returns the first successful correction.
+
+    Args:
+        args (Namespace): Parsed command line arguments.
+        seq_list (list): List of characters representing the sequence.
+        start_pos (int): Starting position of the k-mer in the sequence.
+        k (int): Length of the k-mer.
+        kmer_frequency (dict): Dictionary containing k-mer frequencies.
+        threshold (int): Error threshold for the k-mer frequency.
+        forward (bool): Direction of the correction (True for forward, False for backward).
+
+    Returns:
+        list: Corrected sequence list.
+    '''
     nucleotides = list('ATCG') # List of nucleotides for base changes
     position = start_pos + (k - 1) if forward else start_pos
     original = seq_list[position]
@@ -111,7 +180,15 @@ def make_window_correction(args, seq_list, start_pos, k, kmer_frequency, thresho
 
 
 def check_sequences(args, kmer_frequency):
-    "Parses an Illumina sequencing file, and then corrects erroneous bases."
+    '''
+    Parse an Illumina sequencing file and correct erroneous bases.
+
+    This function reads sequences from an Illumina sequencing file and corrects erroneous k-mers by performing forward and backward passes. It generates corrected sequences and writes them to an output file.
+
+    Args:
+        args (Namespace): Parsed command line arguments.
+        kmer_frequency (dict): Dictionary containing k-mer frequencies.
+    '''
     file_path = args.file
     file_format = args.format
     verbose = args.verbose
@@ -171,7 +248,11 @@ def check_sequences(args, kmer_frequency):
 
 
 def main():
-    "Main function"
+    '''
+    Main function that orchestrates the error correction for Illumina sequencing data.
+
+    This function handles the entire process of reading input arguments, computing initial k-mer frequencies, correcting erroneous k-mers, and saving the corrected sequences. It also generates visualizations of k-mer frequencies before and after correction.
+    '''
 
     # Variable for performing testing on system arguments
     test_args = None
