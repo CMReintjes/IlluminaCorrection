@@ -1,10 +1,7 @@
 from Bio.Seq import Seq
 from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
 import matplotlib.pyplot as plt
 import argparse
-from read_file import read_illumina
-from window_correct import fix_window
 
 
 def parse_arguments(test_args):
@@ -13,13 +10,14 @@ def parse_arguments(test_args):
 
     # Positional arguments
     parser.add_argument('file', type=str, help='Illumina reads file for correction')
-    parser.add_argument('format', type=str, choices=['fasta', 'fastq'], help='Format of the Illumina file (.fasta or .fastq)')
+    parser.add_argument('format', type=str.lower, choices=['fasta', 'fastq'], help='Format of the Illumina file (.fasta or .fastq)')
     parser.add_argument('kmer_length', type=int, help='Length of the k-mer')
     parser.add_argument('threshold', type=int, help='Error threshold for correction')
 
     # Optional flag arguments
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose output')
+    parser.add_argument('-s', '--save-plot', action='store_true')
 
     if test_args:
         return parser.parse_args(test_args)
@@ -27,14 +25,58 @@ def parse_arguments(test_args):
         return parser.parse_args()
 
 
-def plot_kmer_frequencies(kmer_frequency, title):
+def plot_kmer_frequencies(kmer_frequency, title, close=False):
     "Plots a histogram of k-mer frequencies."
     plt.figure(figsize=(10, 6))
     plt.hist(kmer_frequency.values(), bins=50)
     plt.xlabel('K-mer Frequency')
     plt.ylabel('Count')
     plt.title(title)
-    plt.show()
+    if close:
+        plt.savefig(title+".png", dpi=300)
+        plt.close()
+    else:
+        plt.show()
+
+
+def get_kmer_frequency(kmer, frequency):
+    "Checks if kmer exists within the hash, and updates count"
+    if kmer in frequency: # If key exists add one to frequency
+        frequency[kmer] += 1
+    else: # If new kmer then add with frequency 1
+        frequency[kmer] = 1
+    return
+
+
+def read_illumina(filename, format, k, verbose=False):
+    """
+    Read and parse the illumina file and return kmer hash
+
+    Args:
+        filename: name of the input file
+        format: file format for biopython parser
+        k: length of the kmers
+
+    Returns:
+        kmer_frequency: hash of kmers and count frequency
+    """
+    kmer_frequency = {}
+
+    if verbose:
+        print(f'Opening file: {filename}')
+    # Open Illumina File
+    with open(filename, 'r') as input_file:
+        if verbose: # Verbose output
+            print(f'Parsing file as {format} format...')
+        # Iterate through records
+        for record in SeqIO.parse(input_file, format):
+            sequence = str(record.seq)
+            if verbose: # Verbose output
+                print(f'Processing record: {record.id}')
+            # Get kmer frequency using dictionary
+            for pos in range(len(sequence)-k+1):
+                get_kmer_frequency(sequence[pos:pos+k], kmer_frequency)
+    return kmer_frequency
 
 
 def check_kmer_error(kmer, kmer_frequency, threshold):
@@ -45,41 +87,81 @@ def check_kmer_error(kmer, kmer_frequency, threshold):
         else:
             return False
     except KeyError: # Error handling just in case
-        print(f"Bad Kmer: {kmer}")
+        print(f"Error encountered with kmer: {kmer}. Key missing from hash.")
         return True
+    
 
+def fix_window(window, k, threshold, frequency, reverse=False):
+    """
+    Use the sliding window to check the kmer for possible base changes, and check validity of future affected kmers.
 
-def make_window_correction(args, window, kmer_frequency, threshold, forward):
-    "Makes corrections to an erroneous base by trying all possible base changes."
-    nucleotides = list('ATCG') # List of nucleotides for base changes
-    if forward: # If checking in forward direction use last base
-        position = -1
-        original = window[position]
-        
-    else: # If checking in reverse direction use first base
-        position = 0
-        original = window[position]
-        
-    corrected_window = list(window) # Make copy of original
-    for nuc in nucleotides:
-        if nuc != original:
-            corrected_window[position] = nuc
-            corrected_kmer = ''.join(corrected_window)
+    Args:
+        window: list of nucleotides to correct (len=2k-1)
+        k: kmer length
+        threshold: error threshold
+        frequency: dictionary of kmer frequency
+        reverse: boolean for changing to reverse check direction
 
-            # Verify if the corrected k-mer is above the error threshold
-            if not check_kmer_error(corrected_kmer, kmer_frequency, threshold):
-                if args.verbose:
-                    print(f'Correction successful for k-mer: {corrected_kmer}')
-                return corrected_window
+    Returns:
+        corrected: corrected kmer (len=k)
+    """
+    corrected = list(window)
+    all_kmers = True
+    if reverse: # Set values for reverse checking sequences
+        pos = len(window)-k
+        start_pos = len(window)-k
+        end_pos = -1
+        step = -1
+        original = ''.join(window[start_pos:start_pos+k+1])
+    else: # Default values for forward direction
+        pos = k-1
+        start_pos = 0
+        end_pos = len(window)-k+1
+        step = 1
+        original = ''.join(window[start_pos:start_pos+k])
+    
+    max_freq = frequency[original]
+    bases = list("ATGC")
+    for b in bases: # Iterate through base options
+        all_kmers = True
+        window[pos] = b # Change the base at error location
+        # Iterate through future kmers to check validity
+        for n in range(start_pos, end_pos, step):
+            kmer = "".join(window[n:n+k])
+            # If kmer doesn't exist break out
+            if kmer not in frequency:
+                all_kmers = False
+                break
 
-    # If no correction was successful, revert the change
-    if args.verbose:
-        print(f'Correction failed for k-mer: {"".join(window)}')
-    return window
+        # Make kmer with changed original
+        kmer = list(original)
+        kmer[pos] = b
+        kmer = ''.join(kmer)
+        # Check that kmer is above the frequency of the last and over threshold
+        if all_kmers and kmer in frequency:
+            if frequency[kmer] > max_freq and frequency[kmer] > threshold:
+                corrected[pos] = b
+
+    return corrected[start_pos:start_pos+k]
 
 
 def check_sequences(args, kmer_frequency):
-    "Parses an Illumina sequencing file, and then corrects erroneous bases."
+    """
+    Parses an Illumina sequencing file, and then corrects erroneous bases.
+    
+    First parses the file and iterates through sequences. Sequences are made into a list
+    and then split into kmers. If kmer is erroneous, sliding window is then made of 
+    length 2k-1 to contain all kmers that would be affected by the change. If there 
+    is an error within the first kmer, they are skipped until the first valid kmer, 
+    and are then checked at the end using a reverse pass through the initial area.
+
+    Args:
+        args: argparse arguments object
+        kmer_frequency: dictionary of kmer frequencies
+    
+    Outputs:
+        Corrected sequences to corrected file
+    """
     file_path = args.file
     file_format = args.format
     verbose = args.verbose
@@ -108,7 +190,6 @@ def check_sequences(args, kmer_frequency):
                     if args.verbose:
                         print(f'K-mer {kmer} is below the error threshold: {kmer_frequency[kmer]}.')
                     window = list(seq_list[pos:pos+(2*k)-1]) # Make window of kmer
-                    # new_window = make_window_correction(args, window, kmer_frequency, threshold, forward=True)
                     new_window = fix_window(list(window), k, threshold, kmer_frequency)
                     seq_list[pos:pos+k] = list(new_window) # Replace old section of sequence with corrected section
                     if args.verbose:
@@ -127,7 +208,6 @@ def check_sequences(args, kmer_frequency):
                         adj_pos = max(0, pos-k)
                         end_pos = pos+(k)
                         window = list(seq_list[adj_pos:end_pos])
-                        # new_window = make_window_correction(args, window, kmer_frequency, threshold, forward=False)
                         new_window = fix_window(list(window), k, threshold, kmer_frequency, reverse=True)
                         seq_list[pos:pos+k] = list(new_window)
                         if args.verbose:
@@ -159,12 +239,12 @@ def main():
     
     # Get Kmer frequency, plot it, and then check for errors
     kmer_frequency = read_illumina(args.file, args.format, args.kmer_length)
-    plot_kmer_frequencies(kmer_frequency, 'K-mer Frequencies Before Correction')
+    plot_kmer_frequencies(kmer_frequency, 'K-mer Frequencies Before Correction', args.save_plot)
     check_sequences(args, kmer_frequency)
 
     # Calculate k-mer frequency from corrected file and re-plot
     corrected_kmer_frequency = read_illumina(corrected_file_name, args.format, args.kmer_length)
-    plot_kmer_frequencies(corrected_kmer_frequency, 'K-mer Frequencies After Correction')
+    plot_kmer_frequencies(corrected_kmer_frequency, 'K-mer Frequencies After Correction', args.save_plot)
 
 
 main()
