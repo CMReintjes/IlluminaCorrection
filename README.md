@@ -11,7 +11,7 @@ McMaster Univeristy - W Booth School of Engineering Practice and Technology
 
 ## Description
 
-Basic kmer based error correction software for illumina file processing. Written for use with command line arguments for running through command line interface. Can take both FastQ and Fasta formats as inputs, and will output the corrected file with the same format.
+Basic kmer based error correction software for illumina file processing. Written for use with command line arguments for running through command line interface. Can take both Fastq and Fasta formats as inputs, and will output the corrected file with the same format.
 
 ### Running the script
 
