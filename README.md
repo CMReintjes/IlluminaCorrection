@@ -2,7 +2,7 @@
 
 ## Author
 
-Connor Reintjes - 400312785
+Connor Reintjes
 
 ## Association
 
