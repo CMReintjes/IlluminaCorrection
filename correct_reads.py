@@ -1,3 +1,4 @@
+from hmac import new
 from Bio.Seq import Seq
 from Bio import SeqIO
 import matplotlib.pyplot as plt
@@ -183,7 +184,14 @@ def check_sequences(args, kmer_frequency):
             seq_list = list(sequence) # Convert to list
             error_pos = -1 # For keeping track of error position if there is initial error
             # Forward pass through the sequence
+            double = False
             for pos in range(len(seq_list) - k + 1):
+                last = False
+                first = False
+                if pos == len(seq_list) - k:
+                    last = True
+                elif pos == 0:
+                    first = True
                 kmer = ''.join(seq_list[pos:pos+k]) # Make kmer
                 # Check for errors, and if there are, run correction
                 if check_kmer_error(kmer, kmer_frequency, threshold):
@@ -192,9 +200,36 @@ def check_sequences(args, kmer_frequency):
                     window = list(seq_list[pos:pos+(2*k)-1]) # Make window of kmer
                     new_window = fix_window(list(window), k, threshold, kmer_frequency)
                     seq_list[pos:pos+k] = list(new_window) # Replace old section of sequence with corrected section
-                    if args.verbose:
-                        print(f'Corrected kmer: {''.join(new_window)}')
+                    if args.verbose and ''.join(new_window) != kmer:
+                        if last:
+                            print('Kmer at last position corrected:')
+                            print(f'Old Sequence:\t {sequence}')
+                            print(f'Sequence:\t {''.join(seq_list)}')
+                            print(f'(New kmer : Old kmer): {''.join(new_window)} : {''.join(kmer)}')
+                            # input("Press enter to continue...")
+                        elif first:
+                            print('Kmer at first position corrected:')
+                            print(f'Old Sequence:\t {sequence}')
+                            print(f'Sequence:\t {''.join(seq_list)}')
+                            print(f'(New kmer : Old kmer): {''.join(new_window)} : {''.join(kmer)}')
+                            #input("Press enter to continue...")
+                        elif double:
+                            print(f'Old Sequence:\t {sequence}')
+                            print(f'Sequence:\t {''.join(seq_list)}')
+                            print(f'Double corrected kmer: {''.join(last_kmer)} : {''.join(new_window)}')
+                            print(f'Old kmer: {''.join(last_kmer)} : {''.join(kmer)}')
+                            #input("Press enter to continue...")
+                        else:
+                            #print(f'Old Sequence:\t {sequence}')
+                            #print(f'Sequence:\t {''.join(seq_list)}')
+                            print(f'New kmer : Old kmer {''.join(new_window)} : {''.join(kmer)}')
+                            double = True
+                            last_kmer = new_window
+                    else:
+                        print('No corrected solution found for kmer')
+                        double = False
                 else: # Checks for first good kmer after initial error
+                    double = False
                     if error_pos == -1:
                         error_pos = pos # remember position of known good kmer
 
@@ -202,6 +237,8 @@ def check_sequences(args, kmer_frequency):
             if error_pos > 0:
                 for pos in range(error_pos - 1, -1, -1):
                     kmer = ''.join(seq_list[pos:pos+k])
+                    if pos == 0:
+                        first = True
                     if check_kmer_error(kmer, kmer_frequency, threshold):
                         if args.verbose:
                             print(f'Backward pass: K-mer {kmer} is below the error threshold.')
@@ -210,8 +247,17 @@ def check_sequences(args, kmer_frequency):
                         window = list(seq_list[adj_pos:end_pos])
                         new_window = fix_window(list(window), k, threshold, kmer_frequency, reverse=True)
                         seq_list[pos:pos+k] = list(new_window)
-                        if args.verbose:
-                            print(f'Backward pass corrected kmer: {''.join(new_window)}')
+                        if args.verbose and ''.join(new_window) != kmer:
+                            if first:
+                                #print(f'Backward pass corrected kmer: {''.join(new_window)}')
+                                print('Kmer at first position corrected (backwards):')
+                                print(f'Old Sequence:\t {sequence}')
+                                print(f'Sequence:\t {''.join(seq_list)}')
+                                print(f'(New kmer : Old kmer): {''.join(new_window)} : {''.join(kmer)}')
+                                #input("Press enter to continue...")
+                        else:
+                            print('No corrected solution found for kmer')
+                                
 
             # Correct the sequence and then add to copy of record
             new_sequence = ''.join(seq_list)
